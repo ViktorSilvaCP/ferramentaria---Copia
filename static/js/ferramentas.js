@@ -1,8 +1,7 @@
 
 class GerenciadorFerramentas {
     constructor() {
-        this.ferramentas = [];
-        this.tabelaCorpo = document.getElementById('tabelaFerramentas');
+        this.ferramentas = []; // Armazena todas as ferramentas carregadas
         this.tabelaCorpo = document.querySelector('table tbody');
         this.init();
     }
@@ -14,14 +13,21 @@ class GerenciadorFerramentas {
     }
 
     cacheElements() {
+        // Botões de ação principais
         this.btnAdicionar = document.getElementById('btnAdicionarFerramenta');
         this.btnImportar = document.getElementById('btnImportarFerramenta');
         this.btnAtualizar = document.getElementById('btnAtualizar');
+
+        // Modal de Adicionar/Editar
         this.modalAdicionar = document.getElementById('modalAdicionarFerramenta');
         this.formAdicionar = document.getElementById('formAdicionarFerramenta');
+        this.btnSalvarFerramenta = this.formAdicionar.querySelector('button[type="submit"]');
+        this.btnCancelarAdicionar = document.getElementById('btnCancelarAdicionar');
+
+        // Modal de Importação
         this.modalImportar = document.getElementById('modalImportarFerramenta');
         this.formImportar = document.getElementById('formImportarFerramenta');
-        this.btnCancelarAdicionar = document.getElementById('btnCancelarAdicionar');
+        this.btnExecutarImportacao = this.formImportar.querySelector('button[type="submit"]');
         this.btnCancelarImportar = document.getElementById('btnCancelarImportar');
     }
 
@@ -31,18 +37,26 @@ class GerenciadorFerramentas {
         this.btnAtualizar?.addEventListener('click', () => this.carregarFerramentas());
         this.btnCancelarAdicionar?.addEventListener('click', () => this.fecharModal(this.modalAdicionar));
         this.btnCancelarImportar?.addEventListener('click', () => this.fecharModal(this.modalImportar));
-        this.formAdicionar?.addEventListener('submit', (e) => this.salvarFerramenta(e));
-        this.formImportar?.addEventListener('submit', (e) => this.importarFerramentas(e));
+        
+        this.btnSalvarFerramenta.addEventListener('click', (e) => {
+            e.preventDefault(); 
+            this.salvarFerramenta();
+        });
+
+        this.btnExecutarImportacao.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.importarFerramentas();
+        });
     }
 
     async carregarFerramentas() {
         try {
             const resp = await fetch('/api/ferramentas');
-            if (!resp.ok) throw new Error('Erro ao carregar ferramentas');
+            if (!resp.ok) throw new Error(`Erro HTTP: ${resp.status}`);
             this.ferramentas = await resp.json();
             this.renderTabela();
         } catch (err) {
-            this.notificar('Falha ao carregar ferramentas.', 'danger');
+            this.notificar(`Falha ao carregar ferramentas: ${err.message}`, 'danger');
             console.error(err);
         }
     }
@@ -50,7 +64,7 @@ class GerenciadorFerramentas {
     renderTabela() {
         this.tabelaCorpo.innerHTML = '';
         if (!this.ferramentas.length) {
-            this.tabelaCorpo.innerHTML = `<tr><td colspan="9" class="text-center py-4">Nenhuma ferramenta encontrada.</td></tr>`;
+            this.tabelaCorpo.innerHTML = `<tr><td colspan="9" class="text-center py-4">Nenhuma ferramenta cadastrada.</td></tr>`;
             return;
         }
         for (const f of this.ferramentas) {
@@ -82,9 +96,7 @@ class GerenciadorFerramentas {
         modal?.classList.add('hidden');
     }
 
-    async salvarFerramenta(e) {
-        e.preventDefault();
-        const form = this.formAdicionar;
+    async salvarFerramenta() {        const form = this.formAdicionar;
         const dados = {
             codigo: form.codigo.value.trim(),
             tipo: form.tipo.value.trim(),
@@ -92,7 +104,7 @@ class GerenciadorFerramentas {
             status: form.status.value
         };
         if (!dados.codigo || !dados.tipo) {
-            this.notificar('Código e Tipo são obrigatórios.', 'danger');
+            this.notificar('Os campos Código e Tipo são obrigatórios.', 'danger');
             return;
         }
         try {
@@ -116,34 +128,31 @@ class GerenciadorFerramentas {
     }
 
     
-async importarFerramentas(e) {
-    e.preventDefault();
-    if (!confirm('Deseja importar ferramentas do arquivo externo? Isso pode levar alguns momentos.')) return;
-
-    // Desabilita o botão e mostra "aguarde"
-    const btn = this.modalImportar.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Importando...';
-
-    try {
-        const resp = await fetch('/api/ferramentas/importar', { method: 'POST' });
-        const resultado = await resp.json();
-        if (resultado.success) {
-            this.notificar(resultado.message, 'success');
-            this.fecharModal(this.modalImportar);
-            this.carregarFerramentas();
-        } else {
-            throw new Error(resultado.message || 'Erro desconhecido na importação.');
+    async importarFerramentas() {
+        if (!confirm('Deseja iniciar a importação de ferramentas do arquivo? Esta ação pode levar alguns instantes.')) return;
+    
+        const btn = this.btnExecutarImportacao;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Importando...';
+    
+        try {
+            const resp = await fetch('/api/ferramentas/importar', { method: 'POST' });
+            const resultado = await resp.json();
+            if (resp.ok && resultado.success) {
+                this.notificar(resultado.message, 'success');
+                this.fecharModal(this.modalImportar);
+                this.carregarFerramentas();
+            } else {
+                throw new Error(resultado.message || `Erro no servidor: ${resp.statusText}`);
+            }
+        } catch (err) {
+            this.notificar(`Falha na importação: ${err.message}`, 'danger');
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-upload mr-2"></i>Importar';
         }
-    } catch (err) {
-        this.notificar(`Erro ao importar: ${err.message}`, 'danger');
-        console.error(err);
-    } finally {
-        // Reabilita o botão e volta o texto
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-upload mr-2"></i>Importar';
     }
-}
 
 
     notificar(msg, tipo = 'success') {

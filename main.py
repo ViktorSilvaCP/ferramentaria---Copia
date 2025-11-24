@@ -2524,8 +2524,8 @@ def importar_ferramentas_endpoint():
     """
     try:
         logger.info(f"[IMPORT] Usuário {current_user.nome} iniciou a importação de ferramentas.")
-        logger.debug(f"[IMPORT] Chamando consumir_ferramentas(remover_apos_processar=False)")
-        resultado_consumo = consumir_ferramentas(remover_apos_processar=False)
+        # A remoção está habilitada para o ambiente de produção. Para testes, pode ser desabilitada.
+        resultado_consumo = consumir_ferramentas(remover_apos_processar=True)
         logger.info(f"[IMPORT] Resultado do consumo: {resultado_consumo}")
         if resultado_consumo['erros']:
             logger.error(f"[IMPORT] Erros encontrados: {resultado_consumo['erros']}")

@@ -127,11 +127,11 @@ def importar_ferramentas_para_db(db, Ferramenta, dados):
         return 0, 0
 
 
-def consumir_ferramentas(caminho_fonte, remover_apos_processar=True):
+def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=True):
     """
     Lê XLS/XLSX do diretório e retorna os dados extraídos.
     Se remover_apos_processar=False, não deleta/move arquivos (útil para testes).
-    Retorna um resumo dict: {'arquivos_processados': n, 'dados': [...], 'erros': [...]}
+    Retorna um resumo dict: {'arquivos_processados': n, 'dados': [...], 'erros': [...]}.
     """
     # 1. Inicialização do resumo (blocos de código desorganizados)
     resumo = {
@@ -139,23 +139,23 @@ def consumir_ferramentas(caminho_fonte, remover_apos_processar=True):
         'dados': [],
         'erros': [],
     }
-    
+
     # 2. Path (blocos de código desorganizados)
     path = Path(caminho_fonte)
-    
+
     # Início do bloco try/except que estava faltando no seu código
     try:
-    
         if not path.exists():
             msg = f"Diretório não encontrado: {caminho_fonte}"
             logger.warning(msg)
             resumo['erros'].append(msg)
             return resumo
 
-        logging.info(f"Buscando arquivos em: {caminho_fonte}")
+        logger.info(f"Buscando arquivos em: {caminho_fonte}")
         arquivos = list(path.glob('*.xls')) + list(path.glob('*.xlsx'))
         if not arquivos:
             logger.warning("Nenhum arquivo de ferramentas (.xls, .xlsx) encontrado no diretório.")
+            resumo['erros'].append("Nenhum arquivo Excel (.xls, .xlsx) encontrado para importar.")
             return resumo
         
         for arquivo in arquivos:
@@ -171,7 +171,8 @@ def consumir_ferramentas(caminho_fonte, remover_apos_processar=True):
                     try:
                         df = pd.read_excel(arquivo, engine='xlrd')
                     except Exception as e2:
-                        raise RuntimeError(f"Não foi possível ler {arquivo.name}: {e2}")
+                        logger.error(f"Falha ao ler {arquivo.name} com xlrd: {e2}")
+                        raise RuntimeError(f"Não foi possível ler o arquivo {arquivo.name} com os motores disponíveis.")
 
                 if df.empty:
                     logger.warning(f"Arquivo {arquivo.name} vazio. Pulando.")
@@ -228,30 +229,30 @@ def consumir_ferramentas(caminho_fonte, remover_apos_processar=True):
                 df_filtrado['sufixo'] = df_filtrado[codigo_col].apply(lambda x: extrair_sufixo_numerico(x) if pd.notna(x) else None)
 
                 # Montar dados padronizados para importação
-                dados = [] # Variável local 'dados' foi reintroduzida, mas os dados estão sendo adicionados diretamente em resumo['dados']
                 for _, row in df_filtrado.iterrows():
                     # Fechamento do dicionário e do append que estava faltando
                     resumo['dados'].append({
                         'codigo': row.get(codigo_col),
                         'status': row.get(status_col) if status_col in row.index else 'disponivel',
-                        'Wymiar metryczny': row.get(wym_metryczny_col) if wym_metryczny_col in row.index else None,
-                        'Wymiar calowy': row.get(wym_calowy_col) if wym_calowy_col in row.index else None,
-                        'Opis': row.get(opis_col) if opis_col in row.index else None,
+                        'Wymiar metryczny': row.get(wym_metryczny_col),
+                        'Wymiar calowy': row.get(wym_calowy_col),
+                        'Opis': row.get(opis_col),
                         'sufixo': row.get('sufixo')
-                    }) # Chaves e parênteses de fechamento adicionados
+                    })
 
                 resumo['arquivos_processados'] += 1
 
                 if remover_apos_processar:
                     try:
-                        arquivo.unlink()
-                        logger.info(f"Arquivo removido: {arquivo.name}") # Mensagem de log corrigida
-                    except Exception as e: # Variável 'e' adicionada ao except
-                        logger.error(f"Erro ao remover {arquivo.name}: {e}") # Variável 'e' usada
+                        arquivo.unlink() # Remove o arquivo após o processamento
+                        logger.info(f"Arquivo removido: {arquivo.name}")
+                    except Exception as e:
+                        logger.error(f"Erro ao remover {arquivo.name}: {e}")
 
-            except Exception as e: # Variável 'e' adicionada ao except
-                msg = f"Erro ao processar arquivo {arquivo.name}: {e}" # Variável 'msg' e 'e' corrigidas
+            except Exception as e:
+                msg = f"Erro ao processar arquivo {arquivo.name}: {e}"
                 logger.error(msg, exc_info=True)
+                resumo['erros'].append(msg)
                 # Bloco de mover para erros (indentação e variáveis corrigidas)
                 if remover_apos_processar:
                     pasta_erro = path / 'erros'
@@ -261,7 +262,7 @@ def consumir_ferramentas(caminho_fonte, remover_apos_processar=True):
                     except Exception as me:
                         logger.error(f"Falha mover {arquivo.name} para erros: {me}")
         
-        return resumo # Retorno do resumo movido para o final do try
+        return resumo
 
     except Exception as e:
         logger.error(f"Erro ao consumir ferramentas: {e}", exc_info=True)
