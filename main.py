@@ -2522,16 +2522,31 @@ def importar_ferramentas_endpoint():
     Endpoint para iniciar a importação de ferramentas do arquivo externo.
     """
     try:
-        logging.info(f"Usuário {current_user.nome} iniciou a importação de ferramentas.")
-        total_importado = importar_ferramentas_para_db(db, Ferramenta)
+        logging.info(f"[IMPORT] Usuário {current_user.nome} iniciou a importação de ferramentas.")
+        
+        # 1. Consumir os arquivos e extrair os dados
+        resultado_consumo = consumir_ferramentas(remover_apos_processar=False)
+        logging.info(f"[IMPORT] Resultado do consumo: {resultado_consumo}")
 
-        if total_importado > 0:
-            return jsonify({'success': True, 'message': f'{total_importado} ferramentas foram importadas/atualizadas com sucesso!'})
+        if resultado_consumo['erros']:
+            # Se houver erros na leitura, retorna a mensagem de erro
+            return jsonify({'success': False, 'message': "; ".join(resultado_consumo['erros'])}), 500
+
+        if not resultado_consumo['dados']:
+            return jsonify({'success': False, 'message': 'Nenhum dado válido encontrado nos arquivos para importar.'})
+
+        # 2. Importar os dados extraídos para o banco de dados
+        adicionadas, atualizadas = importar_ferramentas_para_db(db, Ferramenta, resultado_consumo['dados'])
+        logging.info(f"[IMPORT] BD: {adicionadas} adicionadas, {atualizadas} atualizadas.")
+
+        total = adicionadas + atualizadas
+        if total > 0:
+            return jsonify({'success': True, 'message': f'{total} ferramentas foram importadas/atualizadas com sucesso!'})
         else:
-            return jsonify({'success': False, 'message': 'Nenhuma nova ferramenta foi encontrada ou o arquivo não está disponível.'})
+            return jsonify({'success': False, 'message': 'Nenhuma ferramenta nova ou modificada para importar.'})
 
     except Exception as e:
-        logging.error(f"Erro na rota de importação de ferramentas: {e}", exc_info=True)
+        logging.error(f"[IMPORT] Erro inesperado na rota de importação: {e}", exc_info=True)
         return jsonify({'success': False, 'message': f'Ocorreu um erro no servidor: {e}'}), 500
     
 

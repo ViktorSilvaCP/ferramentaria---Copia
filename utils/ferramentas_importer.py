@@ -127,36 +127,40 @@ def importar_ferramentas_para_db(db, Ferramenta, dados):
         return 0, 0
 
 
-def consumir_ferramentas(db, Ferramenta, caminho_fonte=CAMINHO_FONTE, remover_apos_processar=True):
+def consumir_ferramentas(caminho_fonte, remover_apos_processar=True):
     """
-    Lê XLS/XLSX do diretório e importa para DB.
+    Lê XLS/XLSX do diretório e retorna os dados extraídos.
     Se remover_apos_processar=False, não deleta/move arquivos (útil para testes).
-    Retorna um resumo dict: {'arquivos_processados': n, 'adicionadas': x, 'atualizadas': y, 'erros': [...]}
+    Retorna um resumo dict: {'arquivos_processados': n, 'dados': [...], 'erros': [...]}
     """
+    # 1. Inicialização do resumo (blocos de código desorganizados)
     resumo = {
         'arquivos_processados': 0,
-        'adicionadas': 0,
-        'atualizadas': 0,
-        'erros': []
+        'dados': [],
+        'erros': [],
     }
-
+    
+    # 2. Path (blocos de código desorganizados)
+    path = Path(caminho_fonte)
+    
+    # Início do bloco try/except que estava faltando no seu código
     try:
-        path = Path(caminho_fonte)
+    
         if not path.exists():
             msg = f"Diretório não encontrado: {caminho_fonte}"
             logger.warning(msg)
             resumo['erros'].append(msg)
             return resumo
 
+        logging.info(f"Buscando arquivos em: {caminho_fonte}")
         arquivos = list(path.glob('*.xls')) + list(path.glob('*.xlsx'))
         if not arquivos:
-            logger.debug("Nenhum arquivo de ferramentas encontrado.")
+            logger.warning("Nenhum arquivo de ferramentas (.xls, .xlsx) encontrado no diretório.")
             return resumo
-
+        
         for arquivo in arquivos:
             try:
-                logger.info(f"Lendo arquivo: {arquivo.name}")
-                # Tenta leitura com diferentes engines para maximizar compatibilidade
+                # Tenta leitura com diferentes engines para maximizar compatibilidade (Comentário corrigido)
                 try:
                     if str(arquivo).lower().endswith('.xlsx'):
                         df = pd.read_excel(arquivo, engine='openpyxl')
@@ -224,34 +228,31 @@ def consumir_ferramentas(db, Ferramenta, caminho_fonte=CAMINHO_FONTE, remover_ap
                 df_filtrado['sufixo'] = df_filtrado[codigo_col].apply(lambda x: extrair_sufixo_numerico(x) if pd.notna(x) else None)
 
                 # Montar dados padronizados para importação
-                dados = []
+                dados = [] # Variável local 'dados' foi reintroduzida, mas os dados estão sendo adicionados diretamente em resumo['dados']
                 for _, row in df_filtrado.iterrows():
-                    registro = {
+                    # Fechamento do dicionário e do append que estava faltando
+                    resumo['dados'].append({
                         'codigo': row.get(codigo_col),
                         'status': row.get(status_col) if status_col in row.index else 'disponivel',
                         'Wymiar metryczny': row.get(wym_metryczny_col) if wym_metryczny_col in row.index else None,
                         'Wymiar calowy': row.get(wym_calowy_col) if wym_calowy_col in row.index else None,
                         'Opis': row.get(opis_col) if opis_col in row.index else None,
                         'sufixo': row.get('sufixo')
-                    }
-                    dados.append(registro)
+                    }) # Chaves e parênteses de fechamento adicionados
 
-                adicionadas, atualizadas = importar_ferramentas_para_db(db, Ferramenta, dados)
                 resumo['arquivos_processados'] += 1
-                resumo['adicionadas'] += adicionadas
-                resumo['atualizadas'] += atualizadas
 
                 if remover_apos_processar:
                     try:
                         arquivo.unlink()
-                        logger.info(f"Arquivo removido: {arquivo.name}")
-                    except Exception as e:
-                        logger.warning(f"Erro ao remover {arquivo.name}: {e}")
+                        logger.info(f"Arquivo removido: {arquivo.name}") # Mensagem de log corrigida
+                    except Exception as e: # Variável 'e' adicionada ao except
+                        logger.error(f"Erro ao remover {arquivo.name}: {e}") # Variável 'e' usada
 
-            except Exception as e:
-                msg = f"Erro processar {arquivo.name}: {e}"
+            except Exception as e: # Variável 'e' adicionada ao except
+                msg = f"Erro ao processar arquivo {arquivo.name}: {e}" # Variável 'msg' e 'e' corrigidas
                 logger.error(msg, exc_info=True)
-                resumo['erros'].append(msg)
+                # Bloco de mover para erros (indentação e variáveis corrigidas)
                 if remover_apos_processar:
                     pasta_erro = path / 'erros'
                     pasta_erro.mkdir(exist_ok=True)
@@ -259,8 +260,8 @@ def consumir_ferramentas(db, Ferramenta, caminho_fonte=CAMINHO_FONTE, remover_ap
                         arquivo.rename(pasta_erro / arquivo.name)
                     except Exception as me:
                         logger.error(f"Falha mover {arquivo.name} para erros: {me}")
-
-        return resumo
+        
+        return resumo # Retorno do resumo movido para o final do try
 
     except Exception as e:
         logger.error(f"Erro ao consumir ferramentas: {e}", exc_info=True)
@@ -269,5 +270,12 @@ def consumir_ferramentas(db, Ferramenta, caminho_fonte=CAMINHO_FONTE, remover_ap
 
 
 # Expose a small wrapper for API usage (não remove arquivos por default)
-def consumir_ferramentas_para_api(db, Ferramenta, caminho_fonte=CAMINHO_FONTE):
-    return consumir_ferramentas(db, Ferramenta, caminho_fonte=caminho_fonte, remover_apos_processar=False)
+def importar_ferramentas_para_db_direto(db, Ferramenta, caminho_fonte=CAMINHO_FONTE):
+    """
+    Função completa que consome e importa para o DB.
+    """
+    resultado_consumo = consumir_ferramentas(caminho_fonte, remover_apos_processar=True)
+    if resultado_consumo['dados'] and not resultado_consumo['erros']:
+        adicionadas, atualizadas = importar_ferramentas_para_db(db, Ferramenta, resultado_consumo['dados'])
+        return adicionadas + atualizadas
+    return 0

@@ -59,37 +59,10 @@ class GerenciadorFerramentas {
             e.preventDefault();
             this.salvarFerramenta();
         });
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const btn = document.getElementById('btnConsumir');
-            const out = document.getElementById('resultado');
-    
-            if (!btn) return;
-    
-            btn.addEventListener('click', async function () {
-                btn.disabled = true;
-                out.textContent = 'Iniciando consumo...';
-                try {
-                    const resp = await fetch('/api/consumir_ferramentas', { method: 'POST' });
-                    if (!resp.ok) {
-                        const txt = await resp.text();
-                        out.textContent = `Erro HTTP ${resp.status}: ${txt}`;
-                    } else {
-                        const data = await resp.json();
-                        out.textContent = JSON.stringify(data, null, 2);
-                    }
-                } catch (err) {
-                    out.textContent = 'Falha ao chamar API: ' + (err.message || err);
-                } finally {
-                    btn.disabled = false;
-                }
-            });
-        });
     }
  
     async carregarFerramentas() {
         try {
-            this.tabelaCorpo.innerHTML = `<tr><td colspan="9" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Carregando ferramentas...</td></tr>`;
             const response = await fetch('/api/ferramentas');
             if (!response.ok) throw new Error('Erro ao carregar ferramentas.');
  
@@ -104,27 +77,21 @@ class GerenciadorFerramentas {
  
     renderizarTabela() {
         this.tabelaCorpo.innerHTML = '';
-        const ferramentas = this.ferramentasFiltradas;
-
-        if (ferramentas.length === 0) {
-            this.tabelaCorpo.innerHTML = `<tr><td colspan="9" class="text-center py-4">Nenhuma ferramenta encontrada.</td></tr>`;
+        if (this.ferramentasFiltradas.length === 0) {
+            this.tabelaCorpo.innerHTML = `<tr><td colspan="5" class="text-center py-4">Nenhuma ferramenta encontrada.</td></tr>`;
             return;
         }
  
-        ferramentas.forEach(f => {
+        this.ferramentasFiltradas.forEach(f => {
             const tr = document.createElement('tr');
             tr.className = 'border-b border-gray-200 hover:bg-gray-50';
             tr.innerHTML = `
                 <td class="py-4 px-6">${f.codigo}</td>
-                <td class="py-4 px-6">${f.descricao || 'N/A'}</td>
-                <td class="py-4 px-6">${f.tipo || 'N/A'}</td>
-                <td class="py-4 px-6">${f.dimensao_metrica || 'N/A'}</td>
-                <td class="py-4 px-6">${f.dimensao_polegada || 'N/A'}</td>
-                <td class="py-4 px-6">${f.sufixo || 'N/A'}</td>
+                <td class="py-4 px-6">${f.tipo}</td>
                 <td class="py-4 px-6">
                     <span class="status-label ${f.status}">${f.status}</span>
                 </td>
-                <td class="py-4 px-6">${f.ultima_atualizacao || 'N/A'}</td>
+                <td class="py-4 px-6">${f.ultima_atualizacao}</td>
                 <td class="py-4 px-6 text-center">
                     <button class="text-blue-600 hover:text-blue-800 mr-2" title="Editar ferramenta">
                         <i class="fas fa-edit"></i>
@@ -189,7 +156,11 @@ class GerenciadorFerramentas {
     }
  
     async importarFerramentas() {
-         try {
+        if (!confirm('Deseja importar ferramentas do arquivo externo? Isso pode levar alguns momentos.')) {
+            return;
+        }
+ 
+        try {
             const response = await fetch('/api/ferramentas/importar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
