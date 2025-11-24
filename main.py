@@ -2515,6 +2515,7 @@ def exportar_descartes():
             'detail': traceback.format_exc()
         }), 500 
 
+
 @app.route('/api/ferramentas/importar', methods=['POST'])
 @login_required
 def importar_ferramentas_endpoint():
@@ -2522,32 +2523,30 @@ def importar_ferramentas_endpoint():
     Endpoint para iniciar a importação de ferramentas do arquivo externo.
     """
     try:
-        logging.info(f"[IMPORT] Usuário {current_user.nome} iniciou a importação de ferramentas.")
-        
-        # 1. Consumir os arquivos e extrair os dados
+        logger.info(f"[IMPORT] Usuário {current_user.nome} iniciou a importação de ferramentas.")
+        logger.debug(f"[IMPORT] Chamando consumir_ferramentas(remover_apos_processar=False)")
         resultado_consumo = consumir_ferramentas(remover_apos_processar=False)
-        logging.info(f"[IMPORT] Resultado do consumo: {resultado_consumo}")
-
+        logger.info(f"[IMPORT] Resultado do consumo: {resultado_consumo}")
         if resultado_consumo['erros']:
-            # Se houver erros na leitura, retorna a mensagem de erro
+            logger.error(f"[IMPORT] Erros encontrados: {resultado_consumo['erros']}")
             return jsonify({'success': False, 'message': "; ".join(resultado_consumo['erros'])}), 500
-
         if not resultado_consumo['dados']:
+            logger.warning("[IMPORT] Nenhum dado válido encontrado nos arquivos para importar.")
             return jsonify({'success': False, 'message': 'Nenhum dado válido encontrado nos arquivos para importar.'})
-
-        # 2. Importar os dados extraídos para o banco de dados
+        logger.debug(f"[IMPORT] Chamando importar_ferramentas_para_db com {len(resultado_consumo['dados'])} registros")
         adicionadas, atualizadas = importar_ferramentas_para_db(db, Ferramenta, resultado_consumo['dados'])
-        logging.info(f"[IMPORT] BD: {adicionadas} adicionadas, {atualizadas} atualizadas.")
-
+        logger.info(f"[IMPORT] BD: {adicionadas} adicionadas, {atualizadas} atualizadas.")
         total = adicionadas + atualizadas
         if total > 0:
+            logger.info(f"[IMPORT] {total} ferramentas foram importadas/atualizadas com sucesso!")
             return jsonify({'success': True, 'message': f'{total} ferramentas foram importadas/atualizadas com sucesso!'})
         else:
+            logger.warning("[IMPORT] Nenhuma ferramenta nova ou modificada para importar.")
             return jsonify({'success': False, 'message': 'Nenhuma ferramenta nova ou modificada para importar.'})
-
     except Exception as e:
-        logging.error(f"[IMPORT] Erro inesperado na rota de importação: {e}", exc_info=True)
+        logger.error(f"[IMPORT] Erro inesperado na rota de importação: {e}", exc_info=True)
         return jsonify({'success': False, 'message': f'Ocorreu um erro no servidor: {e}'}), 500
+
     
 
 def formatar_numero(valor):
@@ -2830,11 +2829,17 @@ if __name__ == '__main__':
 
 def monitorar_pasta_ferramentas():
     from utils.ferramentas_importer import CAMINHO_FONTE, consumir_ferramentas
-    logging.info(f"[MONITOR] Iniciando monitoramento da pasta: {CAMINHO_FONTE}")
+    logger.info(f"[MONITOR] Iniciando monitoramento da pasta: {CAMINHO_FONTE}")
     while True:
-        with app.app_context():
-            consumir_ferramentas(db, Ferramenta)
-        time.sleep(5) 
+        try:
+            with app.app_context():
+                logger.debug("[MONITOR] Chamando consumir_ferramentas no monitoramento")
+                resultado = consumir_ferramentas(db, Ferramenta)
+                logger.debug(f"[MONITOR] Resultado do consumo: {resultado}")
+        except Exception as e:
+            logger.error(f"[MONITOR] Erro no monitoramento da pasta de ferramentas: {e}", exc_info=True)
+        time.sleep(5)
+
 
 if __name__ == '__main__':
     init_db()
