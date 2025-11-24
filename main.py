@@ -1,3 +1,4 @@
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash,send_file, session, jsonify; import sqlite3; import pandas as pd;from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user
 from werkzeug.utils import secure_filename
@@ -35,7 +36,7 @@ from email.mime.image import MIMEImage
 # IMPORTAÇÕES DO PYTHON
 import time
 import threading
-from utils.ferramentas_importer import consumir_ferramentas, importar_ferramentas_para_db
+from utils.ferramentas_importer import consumir_ferramentas, importar_ferramentas_para_db, CAMINHO_FONTE
 log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s')
 log_file = 'app.log'
 file_handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
@@ -2522,31 +2523,58 @@ def importar_ferramentas_endpoint():
     """
     Endpoint para iniciar a importação de ferramentas do arquivo externo.
     """
+    logger.info("=" * 80)
+    logger.info("[IMPORT] INÍCIO DO PROCESSO DE IMPORTAÇÃO")
+    logger.info("=" * 80)
+    
     try:
         logger.info(f"[IMPORT] Usuário {current_user.nome} iniciou a importação de ferramentas.")
-        # A remoção está habilitada para o ambiente de produção. Para testes, pode ser desabilitada.
-        resultado_consumo = consumir_ferramentas(remover_apos_processar=True)
+        
+        # Verificar se o diretório existe
+        logger.info(f"[IMPORT] Verificando diretório: {CAMINHO_FONTE}")
+        if not os.path.exists(CAMINHO_FONTE):
+            logger.error(f"[IMPORT] DIRETÓRIO NÃO EXISTE: {CAMINHO_FONTE}")
+            return jsonify({'success': False, 'message': f'Diretório não encontrado: {CAMINHO_FONTE}'}), 404
+        
+        # Verificar arquivos no diretório
+        arquivos = list(Path(CAMINHO_FONTE).glob('*.xls*'))
+        logger.info(f"[IMPORT] Arquivos encontrados: {len(arquivos)} - {[a.name for a in arquivos]}")
+        
+        logger.info("[IMPORT] Chamando consumir_ferramentas()...")
+        resultado_consumo = consumir_ferramentas(remover_apos_processar=False)  # FALSE PARA TESTE
         logger.info(f"[IMPORT] Resultado do consumo: {resultado_consumo}")
+        
         if resultado_consumo['erros']:
             logger.error(f"[IMPORT] Erros encontrados: {resultado_consumo['erros']}")
             return jsonify({'success': False, 'message': "; ".join(resultado_consumo['erros'])}), 500
+        
         if not resultado_consumo['dados']:
             logger.warning("[IMPORT] Nenhum dado válido encontrado nos arquivos para importar.")
             return jsonify({'success': False, 'message': 'Nenhum dado válido encontrado nos arquivos para importar.'})
+        
+        logger.info(f"[IMPORT] Total de registros para importar: {len(resultado_consumo['dados'])}")
+        logger.debug(f"[IMPORT] Primeiros 3 registros: {resultado_consumo['dados'][:3]}")
+        
         logger.debug(f"[IMPORT] Chamando importar_ferramentas_para_db com {len(resultado_consumo['dados'])} registros")
         adicionadas, atualizadas = importar_ferramentas_para_db(db, Ferramenta, resultado_consumo['dados'])
         logger.info(f"[IMPORT] BD: {adicionadas} adicionadas, {atualizadas} atualizadas.")
+        
         total = adicionadas + atualizadas
         if total > 0:
-            logger.info(f"[IMPORT] {total} ferramentas foram importadas/atualizadas com sucesso!")
-            return jsonify({'success': True, 'message': f'{total} ferramentas foram importadas/atualizadas com sucesso!'})
+            mensagem = f'{total} ferramentas foram importadas/atualizadas com sucesso! ({adicionadas} novas, {atualizadas} atualizadas)'
+            logger.info(f"[IMPORT] {mensagem}")
+            return jsonify({'success': True, 'message': mensagem})
         else:
             logger.warning("[IMPORT] Nenhuma ferramenta nova ou modificada para importar.")
             return jsonify({'success': False, 'message': 'Nenhuma ferramenta nova ou modificada para importar.'})
+            
     except Exception as e:
         logger.error(f"[IMPORT] Erro inesperado na rota de importação: {e}", exc_info=True)
-        return jsonify({'success': False, 'message': f'Ocorreu um erro no servidor: {e}'}), 500
-
+        return jsonify({'success': False, 'message': f'Ocorreu um erro no servidor: {str(e)}'}), 500
+    finally:
+        logger.info("=" * 80)
+        logger.info("[IMPORT] FIM DO PROCESSO DE IMPORTAÇÃO")
+        logger.info("=" * 80)
     
 
 def formatar_numero(valor):
@@ -2802,30 +2830,6 @@ def testar_envio_email_turno():
         return jsonify({'success': True, 'message': f'E-mail de teste para o turno da {turno} enviado com sucesso!'}), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
-
-if __name__ == '__main__':
-    init_db()
-    sao_paulo_tz = pytz.timezone('America/Sao_Paulo')
-    scheduler = BackgroundScheduler(timezone=sao_paulo_tz)
-
-    def job_noite():
-        with app.app_context():
-            logging.info('[SCHEDULER] Disparando envio de email do turno NOITE')
-            enviar_email_relatorio_diario('noite')
-            
-    def job_dia():
-        with app.app_context():
-            logging.info('[SCHEDULER] Disparando envio de email do turno DIA')
-            enviar_email_relatorio_diario('manha')
-
-    import os
-    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
-        scheduler.add_job(job_dia, CronTrigger(hour=7, minute=0, timezone=sao_paulo_tz), id='job_dia', replace_existing=True)
-        scheduler.add_job(job_noite, CronTrigger(hour=19, minute=0, timezone=sao_paulo_tz), id='job_noite', replace_existing=True)
-        scheduler.start()
-        logging.info('[SCHEDULER] Jobs de email agendados.')
-    else:
-        logging.info('[SCHEDULER] Ignorando agendamento em processo secundário (debug/reload)')
 
 def monitorar_pasta_ferramentas():
     from utils.ferramentas_importer import CAMINHO_FONTE, consumir_ferramentas

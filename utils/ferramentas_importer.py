@@ -128,12 +128,6 @@ def importar_ferramentas_para_db(db, Ferramenta, dados):
 
 
 def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=True):
-    """
-    Lê XLS/XLSX do diretório e retorna os dados extraídos.
-    Se remover_apos_processar=False, não deleta/move arquivos (útil para testes).
-    Retorna um resumo dict: {'arquivos_processados': n, 'dados': [...], 'erros': [...]}.
-    """
-    # 1. Inicialização do resumo (blocos de código desorganizados)
     resumo = {
         'arquivos_processados': 0,
         'dados': [],
@@ -268,15 +262,3 @@ def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=Tru
         logger.error(f"Erro ao consumir ferramentas: {e}", exc_info=True)
         resumo['erros'].append(str(e))
         return resumo
-
-
-# Expose a small wrapper for API usage (não remove arquivos por default)
-def importar_ferramentas_para_db_direto(db, Ferramenta, caminho_fonte=CAMINHO_FONTE):
-    """
-    Função completa que consome e importa para o DB.
-    """
-    resultado_consumo = consumir_ferramentas(caminho_fonte, remover_apos_processar=True)
-    if resultado_consumo['dados'] and not resultado_consumo['erros']:
-        adicionadas, atualizadas = importar_ferramentas_para_db(db, Ferramenta, resultado_consumo['dados'])
-        return adicionadas + atualizadas
-    return 0

@@ -1,18 +1,52 @@
+// Log para confirmar que o arquivo foi carregado
+console.log('[FERRAMENTAS.JS] Arquivo carregado!');
+
+// Aguardar o DOM estar pronto
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inicializar);
+} else {
+    inicializar();
+}
+
+function inicializar() {
+    console.log('[FERRAMENTAS.JS] Inicializando...');
+    
+    // Prevenir submissão de TODOS os formulários da página
+    const todosFormularios = document.querySelectorAll('form');
+    console.log('[FERRAMENTAS.JS] Formulários encontrados:', todosFormularios.length);
+    
+    todosFormularios.forEach((form, index) => {
+        console.log(`[FERRAMENTAS.JS] Form ${index}:`, form.id);
+        form.addEventListener('submit', (e) => {
+            console.log('[FERRAMENTAS.JS] Submit capturado no form:', form.id);
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        });
+    });
+    
+    // Criar instância do gerenciador
+    new GerenciadorFerramentas();
+}
 
 class GerenciadorFerramentas {
     constructor() {
-        this.ferramentas = []; // Armazena todas as ferramentas carregadas
+        console.log('[GERENCIADOR] Construtor chamado');
+        this.ferramentas = [];
         this.tabelaCorpo = document.querySelector('table tbody');
         this.init();
     }
 
     init() {
+        console.log('[GERENCIADOR] Init chamado');
         this.cacheElements();
         this.bindEvents();
         this.carregarFerramentas();
     }
 
     cacheElements() {
+        console.log('[GERENCIADOR] Cacheando elementos...');
+        
         // Botões de ação principais
         this.btnAdicionar = document.getElementById('btnAdicionarFerramenta');
         this.btnImportar = document.getElementById('btnImportarFerramenta');
@@ -21,32 +55,97 @@ class GerenciadorFerramentas {
         // Modal de Adicionar/Editar
         this.modalAdicionar = document.getElementById('modalAdicionarFerramenta');
         this.formAdicionar = document.getElementById('formAdicionarFerramenta');
-        this.btnSalvarFerramenta = this.formAdicionar.querySelector('button[type="submit"]');
         this.btnCancelarAdicionar = document.getElementById('btnCancelarAdicionar');
 
         // Modal de Importação
         this.modalImportar = document.getElementById('modalImportarFerramenta');
         this.formImportar = document.getElementById('formImportarFerramenta');
-        this.btnExecutarImportacao = this.formImportar.querySelector('button[type="submit"]');
+        this.btnExecutarImportacao = this.formImportar?.querySelector('button[type="submit"]');
         this.btnCancelarImportar = document.getElementById('btnCancelarImportar');
+        
+        console.log('[GERENCIADOR] Elementos encontrados:', {
+            btnAdicionar: !!this.btnAdicionar,
+            btnImportar: !!this.btnImportar,
+            btnAtualizar: !!this.btnAtualizar,
+            modalAdicionar: !!this.modalAdicionar,
+            formAdicionar: !!this.formAdicionar,
+            modalImportar: !!this.modalImportar,
+            formImportar: !!this.formImportar,
+            btnExecutarImportacao: !!this.btnExecutarImportacao
+        });
     }
 
     bindEvents() {
-        this.btnAdicionar?.addEventListener('click', () => this.abrirModal(this.modalAdicionar));
-        this.btnImportar?.addEventListener('click', () => this.abrirModal(this.modalImportar));
-        this.btnAtualizar?.addEventListener('click', () => this.carregarFerramentas());
-        this.btnCancelarAdicionar?.addEventListener('click', () => this.fecharModal(this.modalAdicionar));
-        this.btnCancelarImportar?.addEventListener('click', () => this.fecharModal(this.modalImportar));
+        console.log('[GERENCIADOR] Vinculando eventos...');
         
-        this.btnSalvarFerramenta.addEventListener('click', (e) => {
-            e.preventDefault(); 
-            this.salvarFerramenta();
-        });
+        if (this.btnAdicionar) {
+            this.btnAdicionar.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.abrirModal(this.modalAdicionar);
+            });
+        }
+        
+        if (this.btnImportar) {
+            this.btnImportar.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('[GERENCIADOR] Botão importar clicado');
+                this.abrirModal(this.modalImportar);
+            });
+        }
+        
+        if (this.btnAtualizar) {
+            this.btnAtualizar.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.carregarFerramentas();
+            });
+        }
+        
+        if (this.btnCancelarAdicionar) {
+            this.btnCancelarAdicionar.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.fecharModal(this.modalAdicionar);
+            });
+        }
+        
+        if (this.btnCancelarImportar) {
+            this.btnCancelarImportar.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.fecharModal(this.modalImportar);
+            });
+        }
+        
+        // Evento no formulário de adicionar
+        if (this.formAdicionar) {
+            this.formAdicionar.addEventListener('submit', (e) => {
+                console.log('[GERENCIADOR] Submit formAdicionar capturado');
+                e.preventDefault();
+                e.stopPropagation();
+                this.salvarFerramenta();
+                return false;
+            });
+        }
 
-        this.btnExecutarImportacao.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.importarFerramentas();
-        });
+        // Evento no formulário de importar
+        if (this.formImportar) {
+            this.formImportar.addEventListener('submit', (e) => {
+                console.log('[GERENCIADOR] Submit formImportar capturado!');
+                e.preventDefault();
+                e.stopPropagation();
+                this.importarFerramentas();
+                return false;
+            });
+        }
+        
+        // SEGURANÇA EXTRA: Capturar click direto no botão também
+        if (this.btnExecutarImportacao) {
+            this.btnExecutarImportacao.addEventListener('click', (e) => {
+                console.log('[GERENCIADOR] Click no botão importar capturado');
+                e.preventDefault();
+                e.stopPropagation();
+                this.importarFerramentas();
+                return false;
+            });
+        }
     }
 
     async carregarFerramentas() {
@@ -89,14 +188,17 @@ class GerenciadorFerramentas {
     }
 
     abrirModal(modal) {
+        console.log('[GERENCIADOR] Abrindo modal:', modal?.id);
         modal?.classList.remove('hidden');
     }
 
     fecharModal(modal) {
+        console.log('[GERENCIADOR] Fechando modal:', modal?.id);
         modal?.classList.add('hidden');
     }
 
-    async salvarFerramenta() {        const form = this.formAdicionar;
+    async salvarFerramenta() {
+        const form = this.formAdicionar;
         const dados = {
             codigo: form.codigo.value.trim(),
             tipo: form.tipo.value.trim(),
@@ -127,40 +229,59 @@ class GerenciadorFerramentas {
         }
     }
 
-    
     async importarFerramentas() {
-        if (!confirm('Deseja iniciar a importação de ferramentas do arquivo? Esta ação pode levar alguns instantes.')) return;
+        console.log('[GERENCIADOR] importarFerramentas() chamada');
+        
+        if (!confirm('Deseja iniciar a importação de ferramentas do arquivo? Esta ação pode levar alguns instantes.')) {
+            console.log('[GERENCIADOR] Usuário cancelou a importação');
+            return;
+        }
     
+        console.log('[GERENCIADOR] Iniciando importação...');
         const btn = this.btnExecutarImportacao;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Importando...';
+        
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Importando...';
+        }
     
         try {
-            const resp = await fetch('/api/ferramentas/importar', { method: 'POST' });
+            console.log('[GERENCIADOR] Fazendo requisição para /api/ferramentas/importar');
+            const resp = await fetch('/api/ferramentas/importar', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            console.log('[GERENCIADOR] Resposta recebida. Status:', resp.status);
+            
             const resultado = await resp.json();
-            if (resp.ok && resultado.success) {
+            console.log('[GERENCIADOR] Resultado JSON:', resultado);
+            
+            if (resp.ok && resultado.success === true) {
+                console.log('[GERENCIADOR] Importação bem-sucedida');
                 this.notificar(resultado.message, 'success');
                 this.fecharModal(this.modalImportar);
                 this.carregarFerramentas();
             } else {
+                console.log('[GERENCIADOR] Importação falhou:', resultado);
                 throw new Error(resultado.message || `Erro no servidor: ${resp.statusText}`);
             }
         } catch (err) {
+            console.error('[GERENCIADOR] Erro capturado:', err);
             this.notificar(`Falha na importação: ${err.message}`, 'danger');
-            console.error(err);
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-upload mr-2"></i>Importar';
+            console.log('[GERENCIADOR] Finalizando importação');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-upload mr-2"></i>Importar';
+            }
         }
     }
 
-
     notificar(msg, tipo = 'success') {
         const div = document.createElement('div');
-        div.className = `fixed top-5 right-5 p-4 rounded-lg text-white ${tipo === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+        div.className = `fixed top-5 right-5 p-4 rounded-lg text-white z-50 ${tipo === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
         div.textContent = msg;
         document.body.appendChild(div);
         setTimeout(() => div.remove(), 3000);
     }
 }
-document.addEventListener('DOMContentLoaded', () => new GerenciadorFerramentas());
