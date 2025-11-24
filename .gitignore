@@ -1,0 +1,58 @@
+# Arquivos de Bytecode e Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambientes Virtuais
+.venv
+venv/
+env/
+ENV/
+*/.venv
+
+# Banco de Dados
+*.db
+*.sqlite3
+app.db
+
+# Logs
+*.log
+*.log*
+# O seu arquivo de log específico
+app.log
+
+# Pasta de instância do Flask (contém configurações e arquivos sensíveis)
+/instance/
+
+# Arquivos de upload do usuário
+/static/uploads/
+
+# Arquivos de configuração de IDEs
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos de dependências e build
+*.egg-info/
+dist/
+build/
+wheels/
+*.egg
+
+# Arquivos de ambiente (para variáveis de ambiente)
+.env
+.env.*
+!.env.example
+
+# Relatórios de cobertura de testes
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+

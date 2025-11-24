@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}Histórico de Trocas{% endblock %}
+
+{% block content %}
+<div class="background-image-tampas"></div>
+    <div class="relatorio-container production-container">
+        <div class="relatorio-container">
+            <!-- Cabeçalho da Página -->
+            <div class="section-header">
+                <h2 class="section-title">Histórico de Trocas de Ferramentas</h2>
+            </div>
+
+            <!-- Cards de Estatísticas -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card stat-card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon me-3">
+                                    <i class="fas fa-tools fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h3 class="mb-0" id="totalTrocas">0</h3>
+                                    <small>Total de Trocas</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon me-3">
+                                    <i class="fas fa-clock fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h3 class="mb-0" id="mediaVidaUtil">0</h3>
+                                    <small>Média de Vida Útil</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card stat-card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon me-3">
+                                    <i class="fas fa-user-cog fa-2x"></i>
+                                </div>
+                                <div>
+                                    <h3 class="mb-0" id="totalOperadores">0</h3>
+                                    <small>Operadores Ativos</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulário de Filtros -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form id="filtroForm" class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" class="form-control" id="dataInicio">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Data Fim</label>
+                            <input type="date" class="form-control" id="dataFim">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Posição</label>
+                            <select class="form-control" id="posicaoFiltro">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Operador</label>
+                            <input type="text" class="form-control" id="operadorFiltro" placeholder="Nome do operador">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end gap-2">
+                            <button type="button" class="btn btn-primary flex-grow-1" onclick="aplicarFiltros()">
+                                <i class="fas fa-filter me-2"></i>Filtrar
+                            </button>
+                            <button type="button" class="btn btn-success flex-grow-1" onclick="exportarExcel()">
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Grid de Cards -->
+            <div class="row row-cols-1 row-cols-md-3 g-4" id="historicoCompleto">
+                <!-- Cards serão inseridos aqui via JavaScript -->
+            </div>
+
+            <!-- Nova Paginação com números e setas -->
+            <nav class="mt-4" aria-label="Navegação de páginas">
+                <ul class="pagination justify-content-center flex-wrap" id="paginacao"></ul>
+            </nav>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        let currentPage = 1;
+        const itemsPerPage = 27;
+
+        // Adicionar função para carregar posições
+        async function carregarPosicoes() {
+            try {
+                const response = await fetch('/api/historico/all');
+                const data = await response.json();
+                
+                if (data.success && data.items) {
+                    // Extrair posições únicas
+                    const posicoes = [...new Set(data.items.map(item => item.posicao))].sort((a, b) => a - b);
+                    
+                    // Popular o select
+                    const select = document.getElementById('posicaoFiltro');
+                    select.innerHTML = '<option value="">Todas</option>' + 
+                        posicoes.map(pos => `<option value="${pos}">Posição ${pos}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar posições:', error);
+            }
+        }
+
+        async function carregarHistoricoCompleto(page = 1, filtros = {}) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+            
+            try {
+                const url = new URL('/api/historico/all', window.location.origin);
+                url.searchParams.append('page', page);
+                Object.entries(filtros).forEach(([key, value]) => {
+                    if (value) url.searchParams.append(key, value);
+                });
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                const container = document.getElementById('historicoCompleto');
+                
+                container.innerHTML = data.items.map(troca => {
+                    const data_troca = new Date(troca.data);
+                    const data_formatada = data_troca.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    return `
+                    <div class="col mb-4">
+                        <div class="card historico-card h-100 shadow-sm">
+                            <div class="card-header bg-light py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Posição ${troca.posicao}</h6>
+                                    <span class="badge bg-primary">${troca.codigo}</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="info-grid">
+                                    <p class="mb-2"><i class="fas fa-user me-2"></i>${troca.operador}</p>
+                                    <p class="mb-2"><i class="far fa-calendar-alt me-2"></i>${data_formatada}</p>
+                                    <p class="mb-2"><i class="fas fa-cog me-2"></i>${troca.vida_util} strokes</p>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <small>Produção</small>
+                                        <small>${troca.producao_atual} / ${troca.vida_util}</small>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar ${getProgressBarClass(troca.producao_atual, troca.vida_util)}"
+                                             role="progressbar"
+                                             style="width: ${(troca.producao_atual/troca.vida_util * 100)}%">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+
+                atualizarPaginacao(data.total, page);
+
+                if (data.success) {
+                    atualizarEstatisticas(data);
+                }
+
+            } catch (error) {
+                console.error('Erro ao carregar histórico:', error);
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        function getProgressBarClass(atual, total) {
+            const percentual = (atual / total) * 100;
+            if (percentual < 60) return 'bg-success';
+            if (percentual < 85) return 'bg-warning';
+            return 'bg-danger';
+        }
+
+        function atualizarPaginacao(total, currentPage) {
+            const totalPages = Math.ceil(total / itemsPerPage);
+            const paginacao = document.getElementById('paginacao');
+            let html = '';
+
+            // Botão Previous
+            html += `
+                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="event.preventDefault(); mudarPagina(${currentPage - 1})">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+            `;
+
+            // Lógica para mostrar páginas com reticências
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+
+            if (startPage > 1) {
+                html += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" onclick="event.preventDefault(); mudarPagina(1)">1</a>
+                    </li>
+                `;
+                if (startPage > 2) {
+                    html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `
+                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="event.preventDefault(); mudarPagina(${i})">${i}</a>
+                    </li>
+                `;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
+                html += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" onclick="event.preventDefault(); mudarPagina(${totalPages})">${totalPages}</a>
+                    </li>
+                `;
+            }
+
+            // Botão Next
+            html += `
+                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="event.preventDefault(); mudarPagina(${currentPage + 1})">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            `;
+
+            paginacao.innerHTML = html;
+        }
+
+        function mudarPagina(page) {
+            if (page < 1) return;
+            currentPage = page;
+            const filtros = getFiltrosAtuais();
+            carregarHistoricoCompleto(page, filtros);
+        }
+
+        function getFiltrosAtuais() {
+            return {
+                dataInicio: document.getElementById('dataInicio').value,
+                dataFim: document.getElementById('dataFim').value,
+                posicao: document.getElementById('posicaoFiltro').value,
+                operador: document.getElementById('operadorFiltro').value
+            };
+        }
+
+        function aplicarFiltros() {
+            currentPage = 1;
+            const filtros = getFiltrosAtuais();
+            carregarHistoricoCompleto(1, filtros);
+        }
+
+        function limparFiltros() {
+            document.getElementById('dataInicio').value = '';
+            document.getElementById('dataFim').value = '';
+            document.getElementById('posicaoFiltro').value = '';
+            document.getElementById('operadorFiltro').value = '';
+            aplicarFiltros();
+        }
+
+        async function exportarExcel() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.display = 'flex';
+            
+            try {
+                const filtros = getFiltrosAtuais();
+                const baseUrl = 'http://' + window.location.hostname + ':' + window.location.port;
+                const url = new URL('/api/historico/export', baseUrl);
+                
+                Object.entries(filtros).forEach(([key, value]) => {
+                    if (value) url.searchParams.append(key, value);
+                });
+
+                console.log('URL da requisição:', url.toString());
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+                    }
+                    throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                }
+
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `historico_trocas_${new Date().toISOString().slice(0,10)}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                a.remove();
+
+            } catch (error) {
+                console.error('Erro ao exportar:', error);
+                alert(`Erro ao exportar os dados: ${error.message}`);
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        function atualizarEstatisticas(data) {
+            // Atualizar total de trocas
+            document.getElementById('totalTrocas').textContent = data.total || 0;
+            
+            // Atualizar média de vida útil
+            const mediaVidaUtil = data.media_vida_util ? Math.round(data.media_vida_util).toLocaleString('pt-BR') + ' produzidos' : '0 produzidos';
+            document.getElementById('mediaVidaUtil').textContent = mediaVidaUtil;
+            
+            // Atualizar total de operadores ativos
+            document.getElementById('totalOperadores').textContent = data.total_operadores || 0;
+        }
+
+        // Modificar o evento DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadingOverlay.style.display = 'none';
+            await carregarPosicoes(); // Carregar posições primeiro
+            carregarHistoricoCompleto(1);
+        });
+    </script>
+
+    <style>
+        .historico-card {
+            transition: transform 0.2s ease;
+        }
+        
+        .historico-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .info-grid {
+            font-size: 0.9rem;
+        }
+
+        .progress {
+            background-color: #e9ecef;
+            border-radius: 0.25rem;
+        }
+
+        .page-link {
+            padding: 0.5rem 0.75rem;
+            margin: 0 2px;
+        }
+
+        .pagination {
+            gap: 0.25rem;
+        }
+
+        .stat-card {
+            transition: transform 0.2s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            opacity: 0.8;
+        }
+    </style>
+{% endblock %}

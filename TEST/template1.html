@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório Diário – Canpack</title>
+
+    <!-- TailwindCSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <!-- Tailwind config (dark-mode toggle) -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#f2f9fd',
+                            100: '#e2f1fc',
+                            200: '#bce3f8',
+                            300: '#7ecbef',
+                            400: '#36b0e6',
+                            500: '#1a93d0',
+                            600: '#1476b1',
+                            700: '#125f93',
+                            800: '#14507a',
+                            900: '#144566'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.35);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #ffffff33;
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Drag & drop hover */
+        .drop-area.dragover {
+            border-color: #0ea5e9;
+            background-color: #f0f9ff;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
+
+    <!-- Loading -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-brand-700 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="/index">
+                    <img class="h-10" src="https://inside-packaging.nridigital.com/inside-packaging/packaging_nov19/canpack/241846/can_pack_logo_white.240_0_1.png" alt="Canpack">
+                </a>
+
+                <nav class="hidden md:flex items-center space-x-6">
+                    <a href="/relatorio" class="flex items-center space-x-2 px-3 py-2 rounded-md bg-brand-600">
+                        <i class="fas fa-file-alt"></i><span>Relatório</span>
+                    </a>
+                    <a href="/historico_acoes" class="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-brand-600/50">
+                        <i class="fas fa-history"></i><span>Histórico</span>
+                    </a>
+                    <a href="/historico_todas_edicoes" class="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-brand-600/50">
+                        <i class="fas fa-edit"></i><span>Edições</span>
+                    </a>
+                </nav>
+
+                <div class="flex items-center space-x-3">
+                    <span class="hidden sm:block text-sm">Victor Silva</span>
+                    <a href="/adicionar_matricula" class="p-2 rounded-full hover:bg-brand-600/40">
+                        <i class="fas fa-user-plus"></i>
+                    </a>
+                    <a href="/logout" class="p-2 rounded-full hover:bg-brand-600/40">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="max-w-4xl mx-auto py-8 px-4">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 md:p-8">
+            <h1 class="text-2xl font-bold mb-1 text-brand-700">Relatório Diário</h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Insira as ações diárias de forma rápida e intuitiva.</p>
+
+            <form id="reportForm" class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                <!-- Nome -->
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nome</label>
+                    <input type="text" value="Victor Silva" readonly
+                           class="w-full bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
+                </div>
+
+                <!-- Tipo de Ação -->
+                <div>
+                    <label class="block text-sm font-medium mb-1">Tipo de ação</label>
+                    <select name="tipo_acao" required
+                            class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500">
+                        <option disabled selected>Selecione tipo da ação</option>
+                        <option value="5S">5'S</option>
+                        <option value="Apoio">Apoio a Operação</option>
+                        <option value="Corretiva">Corretiva</option>
+                        <option value="Preventiva">Preventiva</option>
+                        <option value="Retrabalho">Retrabalho</option>
+                        <option value="Inspeção">Inspeção</option>
+                        <option value="Melhoria">Melhoria</option>
+                        <option value="Programada">Programada</option>
+                        <option value="Qualificação">Qualificação</option>
+                        <option value="Preditiva">Preditiva</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+
+                <!-- Equipamento -->
+                <div>
+                    <label class="block text-sm font-medium mb-1">Equipamento</label>
+                    <select name="equipamento" required id="equipamento"
+                            class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500">
+                        <option disabled selected>Selecione um equipamento</option>
+                        <option value="Interno">Interno</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+
+                <!-- Solicitante -->
+                <div>
+                    <label class="block text-sm font-medium mb-1">Solicitante</label>
+                    <input type="text" name="solicitante" placeholder="Quem solicitou a intervenção" required
+                           class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500">
+                </div>
+
+                <!-- Código de Falha -->
+                <div>
+                    <label class="block text-sm font-medium mb-1">Código de Falha</label>
+                    <select name="codigo_falha" required
+                            class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500">
+                        <option disabled selected>Selecione um código de falha</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+
+                <!-- Causa Encontrada -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium mb-1">Causa Encontrada</label>
+                    <textarea name="causa_encontrada" rows="2" placeholder="Causa do problema que foi encontrado" required
+                              class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"></textarea>
+                </div>
+
+                <!-- Trabalho Executado -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium mb-1">Trabalho executado</label>
+                    <textarea name="trabalho_executado" rows="2" placeholder="Trabalho executado na ação" required
+                              class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"></textarea>
+                </div>
+
+                <!-- Data -->
+                <div>
+                    <label class="block text-sm font-medium mb-1">Data</label>
+                    <input type="date" name="data" id="data" readonly
+                           class="w-full bg-gray-100 dark:bg-gray-700 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
+                </div>
+
+                <!-- Horários -->
+                <div class="flex items-center space-x-2">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium mb-1">Início</label>
+                        <input type="time" name="horario_inicio" required
+                               class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium mb-1">Término</label>
+                        <input type="time" name="horario_termino" required
+                               class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500">
+                    </div>
+                </div>
+
+                <!-- Evidência -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium mb-1">Foto de Evidência</label>
+                    <div id="dropArea"
+                         class="drop-area relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center text-sm text-gray-500 cursor-pointer hover:border-brand-500">
+                        <i class="fas fa-cloud-upload-alt text-2xl mb-2"></i>
+                        <p>Arraste a imagem ou clique para selecionar</p>
+                        <input type="file" name="foto" accept="image/*" id="fileInput" hidden>
+                        <img id="preview" class="hidden mt-4 mx-auto max-h-48 rounded">
+                    </div>
+                </div>
+
+                <!-- Comentário -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium mb-1">Comentário</label>
+                    <textarea name="comentario" id="comentario" rows="2" placeholder="Comentário (ex: Ação realizada em 05/06/2024)"
+                              class="w-full rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:ring-brand-500 focus:border-brand-500"></textarea>
+                </div>
+
+                <input type="hidden" name="area" value="supervisor">
+                <input type="hidden" name="data_alterada_manual" id="data_alterada_manual" value="false">
+            </form>
+
+            <div class="mt-8 flex justify-end">
+                <button type="submit" form="reportForm"
+                        class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2 rounded-md shadow transition">
+                    Salvar Relatório
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="messageModal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 w-full max-w-sm">
+            <p id="messageContent" class="text-sm"></p>
+            <button onclick="closeModal('messageModal')" class="mt-3 text-sm text-brand-600 font-semibold">Fechar</button>
+        </div>
+    </div>
+
+    <div id="comentarioModal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5 w-full max-w-sm">
+            <h3 class="font-semibold mb-2">Aviso</h3>
+            <p class="text-sm">É obrigatório especificar qual ação foi feita, caso seja marcado os equipamentos <strong>Interno</strong> ou <strong>Outros</strong>.</p>
+            <button onclick="closeModal('comentarioModal')" class="mt-4 text-sm text-brand-600 font-semibold">Entendido</button>
+        </div>
+    </div>
+
+    <div id="dataModal" class="fixed inset-0 bg-black/40 z-50 hidden items-center justify-center">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5 w-full max-w-sm">
+            <h3 class="font-semibold mb-2">Data Detectada</h3>
+            <p class="text-sm mb-3">Detectamos uma data no seu comentário: <strong id="dataDetectada"></strong></p>
+            <p class="text-sm mb-4">Deseja usar esta data para o relatório?</p>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeModal('dataModal')" class="text-sm text-gray-600">Não</button>
+                <button id="confirmarData" class="text-sm bg-brand-600 text-white px-3 py-1 rounded">Sim</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        /* ---------- Loading ---------- */
+        const loading = document.getElementById('loadingOverlay');
+        function showLoading() { loading.style.display = 'flex'; }
+        function hideLoading() { loading.style.display = 'none'; }
+        window.addEventListener('load', hideLoading);
+
+        /* ---------- Set current date ---------- */
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('data').value = today;
+        });
+
+        /* ---------- Modal helpers ---------- */
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+
+        /* ---------- Drag & drop image ---------- */
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+
+        dropArea.addEventListener('click', () => fileInput.click());
+        ['dragover', 'dragenter'].forEach(evt => dropArea.addEventListener(evt, e => {
+            e.preventDefault();
+            dropArea.classList.add('dragover');
+        }));
+        ['dragleave', 'drop'].forEach(evt => dropArea.addEventListener(evt, () => dropArea.classList.remove('dragover')));
+        dropArea.addEventListener('drop', e => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+        fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        /* ---------- Date detection ---------- */
+        const comentario = document.getElementById('comentario');
+        const dataInput = document.getElementById('data');
+        const dataAlteradaManual = document.getElementById('data_alterada_manual');
+        const confirmarBtn = document.getElementById('confirmarData');
+
+        comentario.addEventListener('input', () => {
+            const regex = /\b(\d{2})\/(\d{2})\/(\d{4})\b/;
+            const match = comentario.value.match(regex);
+            if (match) {
+                const [_, d, m, y] = match;
+                const dateStr = `${y}-${m}-${d}`;
+                document.getElementById('dataDetectada').textContent = match[0];
+                openModal('dataModal');
+                confirmarBtn.onclick = () => {
+                    dataInput.value = dateStr;
+                    dataAlteradaManual.value = 'true';
+                    closeModal('dataModal');
+                };
+            }
+        });
+
+        /* ---------- Equipamento warning ---------- */
+        document.getElementById('equipamento').addEventListener('change', e => {
+            if (['Interno', 'Outros'].includes(e.target.value)) openModal('comentarioModal');
+        });
+    </script>
+</body>
+</html>

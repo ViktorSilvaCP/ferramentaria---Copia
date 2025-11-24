@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+
+{% block title %}Histórico de Edições{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Remove estilos gerais duplicados e mantenha apenas os específicos */
+.tree-container {
+    padding: 15px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.change-tree {
+    position: relative;
+    padding-left: 25px;
+}
+
+.change-node {
+    position: relative;
+    margin: 8px 0;
+    padding: 8px;
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-left: 4px solid #007bff;
+}
+
+.change-node::before {
+    content: '';
+    position: absolute;
+    left: -25px;
+    top: 50%;
+    width: 25px;
+    height: 2px;
+    background: #007bff;
+}
+
+.change-node::after {
+    content: '';
+    position: absolute;
+    left: -25px;
+    top: -12px;
+    width: 2px;
+    height: calc(100% + 24px);
+    background: #007bff;
+}
+
+.change-details {
+    margin-left: 10px;
+    font-size: 0.9rem;
+    padding: 3px 0;
+    color: #666;
+}
+
+.version-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.version-panel {
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.version-panel h6 {
+    margin-bottom: 10px;
+}
+
+.version-details p {
+    margin-bottom: 3px;
+    line-height: 1.3;
+}
+
+/* Estilos para a tabela */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table {
+    width: 100%;
+    min-width: 1200px; /* Garante largura mínima para conteúdo */
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 0;
+}
+
+.table th {
+    background: var(--primary-color);
+    color: white;
+    padding: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+    border: none;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: normal;
+    min-width: 120px; /* Largura mínima para células */
+}
+
+/* Ajustes para células específicas */
+.table td:first-child { min-width: 60px; } /* ID */
+.table td:nth-child(2) { min-width: 100px; } /* Data */
+.table td:nth-child(3) { min-width: 150px; } /* Editor */
+.table td:nth-child(4) { min-width: 150px; } /* Nome */
+.table td:nth-child(5), 
+.table td:nth-child(6) { min-width: 100px; } /* Áreas */
+.table td:nth-child(7) { min-width: 120px; } /* Tipo Ação */
+.table td:nth-child(8) { min-width: 150px; } /* Equipamento */
+.table td:nth-child(9) { min-width: 100px; } /* Total Edições */
+
+/* Estilo para linhas da tabela */
+.table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Badges para áreas */
+.badge-area {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.badge-tampas {
+    background-color: #e3f2fd;
+    color: #0d47a1;
+}
+
+.badge-latas {
+    background-color: #fce4ec;
+    color: #c2185b;
+}
+
+/* Botão de detalhes */
+.btn-details {
+    padding: 0.5rem 1rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-details:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .table-container {
+        margin: 0 -1rem;
+        border-radius: 0;
+    }
+    
+    .badge-area {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.75rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="background-image"></div>
+<div class="table-container mt-4">
+    <div class="section-header">
+        <h3 class="section-title">Histórico de edições</h3>
+        <p class="text-muted">Atividade editadas.</p>
+    </div>
+    
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID Original</th>
+                        <th>Data da Última Edição</th>
+                        <th>Editado Por</th>
+                        <th>Nome</th>
+                        <th>Área Original</th>
+                        <th>Área Atual</th>
+                        <th>Tipo de Ação</th>
+                        <th>Equipamento</th>
+                        <th>Total Edições</th>
+                        <th>Detalhes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set grouped_registros = {} %}
+                    {% for registro in registros %}
+                        {% if registro[1] not in grouped_registros %}
+                            {% set _ = grouped_registros.update({registro[1]: {
+                                'data': registro[2],
+                                'editado_por': registro[3],
+                                'nome': registro[5],
+                                'area_original': registro[8],
+                                'area_atual': registro[9],
+                                'tipo_acao': registro[6],
+                                'equipamento': registro[7],
+                                'count': 1
+                            }}) %}
+                        {% else %}
+                            {% set _ = grouped_registros[registro[1]].update({'count': grouped_registros[registro[1]]['count'] + 1}) %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if grouped_registros|length > 0 %}
+                        {% for id, dados in grouped_registros.items() %}
+                        <tr>
+                            <td><strong>#{{ id }}</strong></td>
+                            <td>{{ dados.data }}</td>
+                            <td>{{ dados.editado_por }}</td>
+                            <td>{{ dados.nome }}</td>
+                            <td><span class="badge-area badge-{{ dados.area_original }}">{{ dados.area_original }}</span></td>
+                            <td><span class="badge-area badge-{{ dados.area_atual or 'deleted' }}">{{ dados.area_atual or 'Excluído' }}</span></td>
+                            <td>{{ dados.tipo_acao }}</td>
+                            <td>{{ dados.equipamento }}</td>
+                            <td><span class="badge bg-info">{{ dados.count }} edições</span></td>
+                            <td>
+                                <button class="btn-details" 
+                                        onclick="showEditHistory({{ id }})"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#historicoModal">
+                                    <i class="fas fa-history"></i> Ver Detalhes
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center py-4">
+                                <i class="fas fa-history text-muted mb-2" style="font-size: 2rem;"></i>
+                                <p class="text-muted mb-0">Sem edições realizadas</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    <div class="d-flex justify-content-center mt-4">
+        <ul class="pagination">
+            {% for page_num in range(1, total_pages + 1) %}
+                <li class="page-item {% if page_num == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('historico_todas_edicoes', page=page_num) }}">
+                        {{ page_num }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Modal for details -->
+<div class="modal fade" id="historicoModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Histórico de Alterações</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="tree-container">
+                    <div id="changeTree" class="change-tree">
+                        <!-- Filled by JavaScript -->
+                    </div>
+                    <div id="versionCompare" class="version-compare">
+                        <!-- Filled by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showEditHistory(relatorioId) {
+        fetch(`/historico_edicoes/${relatorioId}`)
+            .then(response => response.json())
+            .then(data => {
+                const treeContainer = document.getElementById('changeTree');
+                const compareContainer = document.getElementById('versionCompare');
+                
+                if (!data.history || data.history.length === 0) {
+                    treeContainer.innerHTML = '<p class="text-center">Nenhuma alteração encontrada</p>';
+                    return;
+                }
+
+                // Build change tree
+                let treeHtml = '';
+                data.history.forEach((version, index) => {
+                    // Compare with next version or current version
+                    const nextVersion = index === 0 ? data.current : data.history[index - 1];
+                    const changes = findChanges(version, nextVersion);
+                    
+                    treeHtml += `
+                        <div class="change-node">
+                            <div class="change-header">
+                                <strong>Versão ${data.history.length - index}</strong>
+                                <span class="change-badge modified">Modificado</span>
+                            </div>
+                            <div class="change-info">
+                                <p><small>Editado por: ${version.editado_por}</small></p>
+                                <p><small>Data: ${version.data_edicao}</small></p>
+                                ${generateChangeSummary(changes)}
+                            </div>
+                        </div>
+                    `;
+                });
+                treeContainer.innerHTML = treeHtml;
+
+                // Show detailed comparison of latest version
+                let compareHtml = `
+                    <div class="version-panel">
+                        <h6>Versão Anterior</h6>
+                        <div class="version-content">
+                            ${generateVersionContent(data.history[0])}
+                        </div>
+                    </div>
+                    <div class="version-panel">
+                        <h6>Versão Atual</h6>
+                        <div class="version-content">
+                            ${generateVersionContent(data.current)}
+                        </div>
+                    </div>
+                `;
+                compareContainer.innerHTML = compareHtml;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('changeTree').innerHTML = 
+                    '<p class="text-center text-danger">Erro ao carregar o histórico</p>';
+            });
+    }
+
+    function findChanges(oldVersion, newVersion) {
+        if (!oldVersion || !newVersion) return [];
+        
+        const changes = [];
+        const fieldsToCompare = [
+            { key: 'data', label: 'Data' },
+            { key: 'nome', label: 'Nome' },
+            { key: 'horario_inicio', label: 'Horário Início' },
+            { key: 'tipo_acao', label: 'Tipo de Ação' },
+            { key: 'equipamento', label: 'Equipamento' },
+            { key: 'solicitante', label: 'Solicitante' },
+            { key: 'codigo_falha', label: 'Código de Falha' },
+            { key: 'causa_encontrada', label: 'Causa Encontrada' },
+            { key: 'trabalho_executado', label: 'Trabalho Executado' },
+            { key: 'comentario', label: 'Comentário' }
+        ];
+
+        for (const field of fieldsToCompare) {
+            // Check if field was modified, including empty modifications
+            if (oldVersion[field.key] !== newVersion[field.key] || 
+                (!oldVersion[field.key] && newVersion[field.key]) || 
+                (oldVersion[field.key] && !newVersion[field.key])) {
+                changes.push({
+                    field: field.label,
+                    oldValue: oldVersion[field.key] || '(vazio)',
+                    newValue: newVersion[field.key] || '(vazio)'
+                });
+            }
+        }
+
+        return changes;
+    }
+
+    function generateChangeSummary(changes) {
+        if (changes.length === 0) return '<p class="change-details">Nenhuma alteração encontrada</p>';
+
+        return changes.map(change => `
+            <div class="change-details">
+                <span class="field-name">• ${change.field}:</span>
+                <span class="change-value old-value">${change.oldValue}</span>
+                <i class="fas fa-arrow-right"></i>
+                <span class="change-value new-value">${change.newValue}</span>
+            </div>
+        `).join('');
+    }
+
+    function generateVersionContent(version) {
+        if (!version) return '<p class="text-muted">Versão não disponível</p>';
+
+        // Use the same field order as findChanges
+        const fieldsToShow = [
+            { key: 'data', label: 'Data' },
+            { key: 'nome', label: 'Nome' },
+            { key: 'horario_inicio', label: 'Horário Início' },
+            { key: 'tipo_acao', label: 'Tipo de Ação' },
+            { key: 'equipamento', label: 'Equipamento' },
+            { key: 'solicitante', label: 'Solicitante' },
+            { key: 'codigo_falha', label: 'Código de Falha' },
+            { key: 'causa_encontrada', label: 'Causa Encontrada' },
+            { key: 'trabalho_executado', label: 'Trabalho Executado' },
+            { key: 'comentario', label: 'Comentário' }
+        ];
+
+        return `
+            <div class="version-details">
+                ${fieldsToShow.map(field => `
+                    <p><strong>${field.label}:</strong> ${version[field.key] || '-'}</p>
+                `).join('')}
+            </div>
+        `;
+    }
+</script>
+{% endblock %}

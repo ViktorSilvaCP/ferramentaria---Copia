@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Mural de Páginas{% endblock %}
+
+{% block content %}
+<div class="app-grid">
+    <div class="app-card">
+        <a href="{{ url_for('relatorio') }}" class="app-card-link">
+            <img src="../static/images/relatorio-diario.png" alt="Imagem do Site 1">
+            <div class="app-card-content">
+                <h2 class="app-card-title">Relátorio Diário</h2>
+                <p class="app-card-description">Preencha seu relátorio diário de intervenções</p>
+            </div>
+            <div class="app-card-footer">
+                <span>Data de Publicação: 06/12/2024</span>
+                <i>Versão: 1.0</i>
+            </div>
+        </a>
+    </div>
+    {% if 'supervisor' in current_user.roles or 'tampas' in current_user.roles %}
+    <div class="app-card">
+        <a href="{{ url_for('production') }}" class="app-card-link" id="card-construcao">
+            <img src="../static/img/construção.jpg" alt="Imagem do Site 1" data-gif="../static/img/construção.gif">
+            <div class="app-card-content">
+                <h2 class="app-card-title">Troca ferramenta ShellPress</h2>
+                <p class="app-card-description">Sistema para gerenciar troca de ferramenta da ShellPress</p>
+            </div>
+            <div class="app-card-footer">
+                <span>Data de Publicação:</span>
+                <i>versão: A.001A</i>
+            </div>
+        </a>
+    </div>
+    {% endif %}
+    {% if 'supervisor' in current_user.roles or 'latas' in current_user.roles %}
+    <div class="app-card">
+        <a href="{{ url_for('ferramentas') }}" class="app-card-link" id="card-construcao">
+            <img src="../static/img/construção.jpg" alt="Imagem do Site 1" data-gif="../static/img/construção.gif">
+            <div class="app-card-content">
+                <h2 class="app-card-title">Troca ferramenta ShellPress</h2>
+                <p class="app-card-description">Sistema para gerenciar troca de ferramenta da ShellPress</p>
+            </div>
+            <div class="app-card-footer">
+                <span>Data de Publicação:</span>
+                <i>versão: A.001A</i>
+            </div>
+        </a>
+    </div>
+    {% endif %}
+    <div class="app-card">
+        <a href="#" class="app-card-link" id="card-construcao">
+            <img src="../static/img/construção.jpg" alt="Imagem do Site 1" data-gif="../static/img/construção.gif">
+            <div class="app-card-content">
+                <h2 class="app-card-title">Site em produção</h2>
+                <p class="app-card-description">Não contavam com minha astúcia!</p>
+            </div>
+            <div class="app-card-footer">
+                <span>Data de Publicação:</span>
+                <i>versão: A.001A</i>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

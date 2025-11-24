@@ -1,0 +1,836 @@
+{% extends "base.html" %}
+
+{% block title %}Análise do Sistema{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-container {
+        background-color: #f8fafc;
+        max-width: 1800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .heatmap-section {
+        position: relative;
+        margin-top: 30px;
+    }
+
+    .heatmap-container {
+        position: relative;
+        width: 1368px;
+        height: 347px;
+        margin: 0 auto;
+        filter: contrast(120%) brightness(105%);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .heatmap-base {
+        width: 1368px;
+        height: 347px;
+        object-fit: fill;
+        filter: grayscale(100%) brightness(75%);
+    }
+
+    .info-popup {
+        position: fixed;
+        background: linear-gradient(135deg, rgba(0,0,0,0.95) 0%, rgba(20,20,20,0.98) 100%);
+        border-radius: 12px;
+        padding: 20px;
+        min-width: 280px;
+        max-width: 320px;
+        color: white;
+        z-index: 1000;
+        visibility: hidden;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .info-popup.show {
+        visibility: visible;
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .info-popup .metric {
+        background: rgba(255,255,255,0.05);
+        margin: 8px 0;
+        padding: 12px 15px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .info-popup .metric:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .info-popup h4 {
+        font-size: 0.85rem;
+        color: rgba(255,255,255,0.7);
+        margin: 0;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .info-popup p {
+        font-size: 1.2rem;
+        margin: 4px 0 0 0;
+        color: white;
+        font-weight: 600;
+    }
+
+    .legend {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        padding: 10px 20px;
+        border-radius: 20px;
+        display: flex;
+        gap: 15px;
+        z-index: 100;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .legend.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 8px 0;
+        color: white;
+    }
+
+    .legend-color {
+        width: 40px;
+        height: 20px;
+        border-radius: 4px;
+    }
+
+    .legend-color.very-low { 
+        background: linear-gradient(to right, #0000ff, #0044ff);
+        box-shadow: 0 0 10px rgba(0,0,255,0.5);
+    }
+
+    .legend-color.low {
+        background: linear-gradient(to right, #00ffff, #00ccff);
+        box-shadow: 0 0 10px rgba(0,255,255,0.5);
+    }
+
+    .legend-color.medium {
+        background: linear-gradient(to right, #ffff00, #ffcc00);
+        box-shadow: 0 0 10px rgba(255,255,0,0.5);
+    }
+
+    .legend-color.high {
+        background: linear-gradient(to right, #ffa500, #ff8c00);
+        box-shadow: 0 0 10px rgba(255,165,0,0.5);
+    }
+
+    .legend-color.very-high {
+        background: linear-gradient(to right, #ff0000, #cc0000);
+        box-shadow: 0 0 10px rgba(255,0,0,0.5);
+    }
+
+    .hotspot {
+        position: absolute;
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        mix-blend-mode: hard-light;
+        filter: blur(30px);
+        transform-origin: center;
+        outline: 2px solid rgba(255, 255, 255, 0.1);
+        outline-offset: 5px;
+    }
+
+    .hotspot::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 30px;
+        height: 30px;
+        background: rgba(255,255,255,0.9);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #333;
+        filter: blur(0);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .hotspot:hover::after {
+        opacity: 1;
+        content: attr(data-posicao);
+    }
+
+    .hotspot.intensity-very-low {
+        background: radial-gradient(circle at center,
+            rgba(0,0,255,1) 0%,
+            rgba(0,0,255,0.4) 70%,
+            rgba(0,0,255,0.1) 100%
+        );
+        box-shadow: 0 0 60px rgba(0,0,255,0.8),
+                    inset 0 0 30px rgba(255,255,255,0.3);
+    }
+
+    .hotspot.intensity-low {
+        background: radial-gradient(circle at center,
+            rgba(0,255,255,1) 0%,
+            rgba(0,255,255,0.4) 70%,
+            rgba(0,255,255,0.1) 100%
+        );
+        box-shadow: 0 0 60px rgba(0,255,255,0.8),
+                    inset 0 0 30px rgba(255,255,255,0.3);
+    }
+
+    .hotspot.intensity-medium {
+        background: radial-gradient(circle at center,
+            rgba(255,255,0,1) 0%,
+            rgba(255,255,0,0.4) 70%,
+            rgba(255,255,0,0.1) 100%
+        );
+        box-shadow: 0 0 60px rgba(255,255,0,0.8),
+                    inset 0 0 30px rgba(255,255,255,0.3);
+    }
+
+    .hotspot.intensity-high {
+        background: radial-gradient(circle at center,
+            rgba(255,120,0,1) 0%,
+            rgba(255,120,0,0.4) 70%,
+            rgba(255,120,0,0.1) 100%
+        );
+        box-shadow: 0 0 60px rgba(255,120,0,0.8),
+                    inset 0 0 30px rgba(255,255,255,0.3);
+    }
+
+    .hotspot.intensity-very-high {
+        background: radial-gradient(circle at center,
+            rgba(255,0,0,1) 0%,
+            rgba(255,0,0,0.4) 70%,
+            rgba(255,0,0,0.1) 100%
+        );
+        box-shadow: 0 0 70px rgba(255,0,0,0.9),
+                    inset 0 0 30px rgba(255,255,255,0.3);
+    }
+
+    /* Estilos do modo edição comentados */
+    /*
+    .edit-mode .hotspot {
+        cursor: move;
+        outline: 2px dashed rgba(255, 255, 255, 0.5);
+        outline-offset: 10px;
+        backdrop-filter: brightness(1.2);
+        filter: blur(20px);
+    }
+
+    .hotspot.dragging {
+        opacity: 0.8;
+        outline: 3px solid rgba(255, 255, 255, 0.8);
+        outline-offset: 15px;
+        filter: blur(15px);
+        transform: scale(1.1);
+    }
+
+    .coordinates-display {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        z-index: 1000;
+        font-family: monospace;
+        display: none;
+    }
+
+    .edit-toggle {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        padding: 10px 20px;
+        background: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        z-index: 1000;
+    }
+
+    .edit-toggle:hover {
+        background: #1976D2;
+    }
+
+    .edit-mode .coordinates-display {
+        display: block;
+    }
+    */
+
+    .mes-display {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: white;
+        margin-right: 20px;
+        padding-right: 20px;
+        border-right: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .mes-display select {
+        background: rgba(0,0,0,0.5);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .mes-display select:hover {
+        background: rgba(0,0,0,0.7);
+    }
+
+    /* Novos estilos para os cards e gráficos */
+    .analytics-container {
+        padding: 20px;
+        margin-top: 30px;
+    }
+
+    .analytics-row {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .analytics-card {
+        flex: 1;
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .card-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #1565C0;
+    }
+
+    .card-trend {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.9rem;
+    }
+
+    .trend-up { color: #F44336; }
+    .trend-down { color: #4CAF50; }
+
+    .chart-container {
+        width: 100%;
+        height: 300px;
+        margin-top: 20px;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .data-table th {
+        background-color: #f5f5f5;
+        font-weight: 600;
+    }
+
+    .data-table tr:hover {
+        background-color: #f9f9f9;
+    }
+
+    .position-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="background-image-tampas"></div>
+<div class="page-container">
+    <!-- Botão e display de coordenadas comentados -->
+    <!--
+    <button class="edit-toggle" onclick="toggleEditMode()">Modo Edição</button>
+    <div class="coordinates-display">
+        <div>Posição: <span id="currentPosition">-</span></div>
+        <div>Top: <span id="topPercentage">-</span>%</div>
+        <div>Left: <span id="leftPercentage">-</span>%</div>
+    </div>
+    -->
+    <div class="section-header">
+        <h3 class="section-title">Análise do Sistema</h2>
+        <p class="text-muted">Mapa de Calor - Frequência de Operações</p>
+    </div>
+
+    <div class="heatmap-section">
+        <div class="heatmap-container" id="heatmapContainer">
+            <img src="{{ url_for('static', filename='img/Captura de tela 2024-12-08 152907.png') }}" 
+                 class="heatmap-base" alt="Layout das ferramentas">
+            
+            {% for posicao, hotspot in hotspots.items() %}
+                {% set dados = dados_analise.get(posicao, {'frequencia_operacoes': 0}) %}
+                {% set freq = dados.frequencia_operacoes %}
+                
+                {% set classe = 'intensity-' + ('very-low' if freq == 0 else 
+                                             'low' if freq <= 5 else
+                                             'medium' if freq <= 10 else
+                                             'high' if freq <= 20 else
+                                             'very-high') %}
+
+                <div class="hotspot {{ classe }}"
+                     data-posicao="{{ posicao }}" 
+                     style="top: {{ hotspot.top }}; left: {{ hotspot.left }};"
+                     title="Frequência: {{ freq }}">
+                    {{ posicao }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div id="infoPopup" class="info-popup">
+            <div id="popupContent">
+                Passe o mouse sobre um ponto para ver detalhes
+            </div>
+        </div>
+    </div>
+
+    <div class="analytics-container">
+        <div class="analytics-row">
+            <!-- Card Total de Operações -->
+            <div class="analytics-card">
+                <div class="card-header">
+                    <span class="card-title">Total de Operações</span>
+                </div>
+                <div class="card-value">{{ total_operacoes }}</div>
+                <div class="card-trend">
+                    {% if operacoes_percentual > 0 %}
+                    <i class="fas fa-arrow-up trend-up"></i>
+                    <span class="trend-up">+{{ operacoes_percentual }}% vs mês anterior</span>
+                    {% else %}
+                    <i class="fas fa-arrow-down trend-down"></i>
+                    <span class="trend-down">{{ operacoes_percentual }}% vs mês anterior</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Card Média de Vida Útil -->
+            <div class="analytics-card">
+                <div class="card-header">
+                    <span class="card-title">Média de Vida Útil</span>
+                </div>
+                <div class="card-value">{{ total_vida_util_formatado }}</div>
+                <span>batidas</span>
+            </div>
+
+            <!-- Card Posições Críticas -->
+            <div class="analytics-card">
+                <div class="card-header">
+                    <span class="card-title">Posições Críticas</span>
+                </div>
+                <div class="card-value">{{ total_posicoes_criticas }}</div>
+                <span>necessitam atenção</span>
+            </div>
+        </div>
+
+        <div class="analytics-row">
+            <!-- Gráfico de Operações por Posição -->
+            <div class="analytics-card">
+                <div class="card-header">
+                    <span class="card-title">Operações por Posição</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="operacoesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico de Tipos de Operação -->
+            <div class="analytics-card">
+                <div class="card-header">
+                    <span class="card-title">Distribuição de Operações</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="tiposOperacaoChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabela de Dados Detalhados -->
+        <div class="analytics-card">
+            <div class="card-header">
+                <span class="card-title">Dados Detalhados por Posição</span>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Posição</th>
+                        <th>Total Trocas</th>
+                        <th>Total Descartes</th>
+                        <th>Total Manutenções</th>
+                        <th>Vida Útil Média</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for posicao, dados in dados_analise.items() %}
+                    <tr>
+                        <td>{{ posicao }}</td>
+                        <td>{{ dados.total_trocas }}</td>
+                        <td>{{ dados.total_descartes }}</td>
+                        <td>{{ dados.total_manutencoes }}</td>
+                        <td>{{ total_vida_util_formatado }}</td>
+                        <td>
+                            {% set freq = dados.frequencia_operacoes %}
+                            {% if freq > 12 %}
+                            <span class="badge badge-danger">Crítico</span>
+                            {% elif freq > 8 %}
+                            <span class="badge badge-warning">Atenção</span>
+                            {% else %}
+                            <span class="badge badge-success">Normal</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="legend" id="heatmapLegend">
+        <div class="mes-display">
+            <span>Análise: {{ mes_atual }}</span>
+            <select onchange="window.location.href='?mes=' + this.value">
+                {% for mes in meses_disponiveis %}
+                <option value="{{ mes.valor }}" {% if mes.valor == mes_selecionado %}selected{% endif %}>
+                    {{ mes.texto }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color very-low"></div>
+            <span>Baixa Atividade (0-2)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color low"></div>
+            <span>Atividade Normal (3-5)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color medium"></div>
+            <span>Atividade Moderada (6-8)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color high"></div>
+            <span>Alta Atividade (9-11)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color very-high"></div>
+            <span>Atividade Crítica (12+)</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.hotspot').forEach(cell => {
+    const popup = document.getElementById('infoPopup');
+    const content = document.getElementById('popupContent');
+
+    cell.addEventListener('mousemove', (e) => {
+        const rect = cell.getBoundingClientRect();
+        const posicao = cell.dataset.posicao;
+        const dados = {{ dados_analise|tojson|safe }}[posicao] || {
+            total_trocas: 0,
+            total_descartes: 0,
+            total_manutencoes: 0,
+            vida_util_media: 0,
+            frequencia_operacoes: 0
+        };
+
+        content.innerHTML = `
+            <div class="metric">
+                <h4>Total de Trocas</h4>
+                <p>${dados.total_trocas}</p>
+            </div>
+            <div class="metric">
+                <h4>Total de Descartes</h4>
+                <p>${dados.total_descartes}</p>
+            </div>
+            <div class="metric">
+                <h4>Total de Manutenções</h4>
+                <p>${dados.total_manutencoes}</p>
+            </div>
+            <div class="metric">
+                <h4>Vida Útil Média</h4>
+                <p>${Math.round(dados.vida_util_media).toLocaleString()} batidas</p>
+            </div>
+            <div class="metric">
+                <h4>Frequência de Operações</h4>
+                <p>${dados.frequencia_operacoes} operações</p>
+            </div>
+        `;
+
+        // Posicionamento inteligente do popup
+        const margin = 20;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Calcula as dimensões após o conteúdo ser inserido
+        const popupRect = popup.getBoundingClientRect();
+        let left = e.clientX + margin;
+        let top = e.clientY + margin;
+
+        // Ajusta horizontalmente
+        if (left + popupRect.width > viewportWidth - margin) {
+            left = e.clientX - popupRect.width - margin;
+        }
+
+        // Ajusta verticalmente
+        if (top + popupRect.height > viewportHeight - margin) {
+            top = viewportHeight - popupRect.height - margin;
+        }
+
+        // Garante posição mínima
+        left = Math.max(margin, left);
+        top = Math.max(margin, top);
+
+        popup.style.left = `${left}px`;
+        popup.style.top = `${top}px`;
+        popup.classList.add('show');
+    });
+
+    // Adiciona pequeno delay no mouseleave para melhor UX
+    let timeout;
+    cell.addEventListener('mouseleave', () => {
+        timeout = setTimeout(() => {
+            popup.classList.remove('show');
+        }, 100);
+    });
+
+    popup.addEventListener('mouseenter', () => {
+        clearTimeout(timeout);
+    });
+
+    popup.addEventListener('mouseleave', () => {
+        popup.classList.remove('show');
+    });
+});
+
+// Código do modo edição comentado
+/*
+let isEditMode = false;
+
+function toggleEditMode() {
+    const container = document.querySelector('.heatmap-container');
+    isEditMode = !isEditMode;
+    container.classList.toggle('edit-mode');
+    document.querySelector('.edit-toggle').textContent = isEditMode ? 'Modo Normal' : 'Modo Edição';
+
+    const hotspots = document.querySelectorAll('.hotspot');
+    hotspots.forEach(hotspot => {
+        if (isEditMode) {
+            makeHotspotDraggable(hotspot);
+        } else {
+            hotspot.removeAttribute('draggable');
+        }
+    });
+}
+
+function makeHotspotDraggable(hotspot) {
+    let startX, startY;
+    hotspot.draggable = true;
+    
+    hotspot.addEventListener('dragstart', (e) => {
+        const rect = hotspot.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        e.dataTransfer.setData('text/plain', '');
+        hotspot.classList.add('dragging');
+    });
+
+    hotspot.addEventListener('drag', (e) => {
+        if (e.clientX === 0 && e.clientY === 0) return;
+
+        const container = document.querySelector('.heatmap-container');
+        const rect = container.getBoundingClientRect();
+        
+        let x = ((e.clientX - rect.left - startX) / rect.width) * 100;
+        let y = ((e.clientY - rect.top - startY) / rect.height) * 100;
+        
+        x = Math.max(0, Math.min(100, x));
+        y = Math.max(0, Math.min(100, y));
+        
+        document.getElementById('currentPosition').textContent = hotspot.dataset.posicao;
+        document.getElementById('topPercentage').textContent = y.toFixed(2);
+        document.getElementById('leftPercentage').textContent = x.toFixed(2);
+    });
+
+    hotspot.addEventListener('dragend', (e) => {
+        if (e.clientX === 0 && e.clientY === 0) return;
+
+        const container = document.querySelector('.heatmap-container');
+        const rect = container.getBoundingClientRect();
+        
+        let x = ((e.clientX - rect.left - startX) / rect.width) * 100;
+        let y = ((e.clientY - rect.top - startY) / rect.height) * 100;
+        
+        x = Math.max(0, Math.min(100, x));
+        y = Math.max(0, Math.min(100, y));
+        
+        hotspot.style.left = x + '%';
+        hotspot.style.top = y + '%';
+        
+        hotspot.classList.remove('dragging');
+        
+        document.getElementById('currentPosition').textContent = hotspot.dataset.posicao;
+        document.getElementById('topPercentage').textContent = y.toFixed(2);
+        document.getElementById('leftPercentage').textContent = x.toFixed(2);
+        
+        console.log(`Posição ${hotspot.dataset.posicao}: top: ${y.toFixed(2)}%, left: ${x.toFixed(2)}%`);
+    });
+}
+*/
+</script>
+
+<!-- Adicionar Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Configurar gráficos
+document.addEventListener('DOMContentLoaded', function() {
+    // Dados para o gráfico de operações por posição
+    const operacoesCtx = document.getElementById('operacoesChart').getContext('2d');
+    new Chart(operacoesCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys({{ dados_analise|tojson|safe }}),
+            datasets: [{
+                label: 'Total de Operações',
+                data: Object.values({{ dados_analise|tojson|safe }}).map(d => d.frequencia_operacoes),
+                backgroundColor: '#1565C0'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Dados para o gráfico de tipos de operação
+    const tiposOperacaoCtx = document.getElementById('tiposOperacaoChart').getContext('2d');
+    const dadosAnalise = {{ dados_analise|tojson|safe }};
+    const totais = {
+        trocas: Object.values(dadosAnalise).reduce((acc, val) => acc + val.total_trocas, 0),
+        descartes: Object.values(dadosAnalise).reduce((acc, val) => acc + val.total_descartes, 0),
+        manutencoes: Object.values(dadosAnalise).reduce((acc, val) => acc + val.total_manutencoes, 0)
+    };
+
+    new Chart(tiposOperacaoCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Trocas', 'Descartes', 'Manutenções'],
+            datasets: [{
+                data: [totais.trocas, totais.descartes, totais.manutencoes],
+                backgroundColor: ['#4CAF50', '#F44336', '#FFC107']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+
+    const legend = document.getElementById('heatmapLegend');
+    const heatmapContainer = document.getElementById('heatmapContainer');
+    let lastScrollPosition = window.pageYOffset;
+    let ticking = false;
+
+    function updateLegendVisibility() {
+        // Alterado para verificar apenas o scroll position
+        const scrollPosition = window.pageYOffset;
+        
+        if (scrollPosition < 100) {
+            legend.classList.add('visible');
+        } else {
+            legend.classList.remove('visible');
+        }
+    }
+
+    function onScroll() {
+        lastScrollPosition = window.pageYOffset;
+        if (!ticking) {
+            window.requestAnimationFrame(() => {
+                updateLegendVisibility();
+                ticking = false;
+            });
+            ticking = true;
+        }
+    }
+
+    // Verificar visibilidade inicial
+    updateLegendVisibility();
+
+    // Adicionar listener de scroll
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Adicionar listener de redimensionamento
+    window.addEventListener('resize', updateLegendVisibility, { passive: true });
+});
+</script>
+{% endblock %}

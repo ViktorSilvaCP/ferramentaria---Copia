@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório Diário - Ferramentaria {{ area_name }}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; line-height: 1.6; color: #333333; background-color: #f4f4f4;">
+    <div style="max-width: 800px; margin: 24px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0078d4 0%, #004e8c 100%); color: #fff; padding: 24px 32px;">
+            <h1 style="margin: 0 0 4px 0; font-size: 2em; font-weight: bold;">Relatório Diário de Atividades</h1>
+            <p style="margin: 0; font-size: 1.1em; color: #cce3fa;">Ferramentaria {{ area_name }}</p>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; padding: 16px 32px; border-bottom: 1px solid #e5e5e5; background-color: #f9f9f9;">
+            <div style="margin-bottom: 8px; font-size: 1em; margin-right: 16px;"><strong>Data:</strong> {{ generation_date }}</div>
+            <div style="margin-bottom: 8px; font-size: 1em; margin-right: 16px;"><strong>Gerado em:</strong> {{ generation_time }}</div>
+            <div style="margin-bottom: 8px; font-size: 1em;"><strong>Fábrica:</strong> {{ area_name }}</div>
+        </div>
+        <div style="padding: 32px;">
+            <p style="margin-bottom: 16px;">Prezados,</p>
+            <p style="margin-bottom: 16px;">Segue abaixo o relatório das atividades realizadas pela equipe Ferramentaria {{ area_name }}</p>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em; background: #f0f4fa; color: #004e8c; font-weight: bold;">Item</th>
+                        <th style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em; background: #f0f4fa; color: #004e8c; font-weight: bold;">Hora</th>
+                        <th style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em; background: #f0f4fa; color: #004e8c; font-weight: bold;">Tipo</th>
+                        <th style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em; background: #f0f4fa; color: #004e8c; font-weight: bold;">Máquina</th>
+                        <th style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em; background: #f0f4fa; color: #004e8c; font-weight: bold;">Responsável</th>
+                        <th style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em; background: #f0f4fa; color: #004e8c; font-weight: bold;">Atividade</th>
+                        <th style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em; background: #f0f4fa; color: #004e8c; font-weight: bold;">Detalhes</th>
+                        <th style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em; background: #f0f4fa; color: #004e8c; font-weight: bold;">Foto</th>
+                        </tr>
+                    </thead>
+                <tbody>
+                {% for item in data %}
+                    <tr style="background: {% if loop.index % 2 == 0 %}#f9f9f9{% else %}#ffffff{% endif %};" >
+                        <td style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em;">{{ loop.index }}</td>
+                        <td style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em;">{{ item[1] }}</td>
+                        <td style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em;">{{ item[2] }}</td>
+                        <td style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em;">{{ item[3] }}</td>
+                        <td style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em;">{{ item[4] }}</td>
+                        <td style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em;">{{ item[5] }}</td>
+                        <td style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em;">{{ item[6] }}</td>
+                        <td style="border: 1px solid #e0e0e0; padding: 8px 10px; text-align: left; font-size: 0.97em;">{% if item[7] %}<img src="cid:{{ item[7] }}" width="100" />{% else %}-{% endif %}</td>
+                        </tr>
+                {% endfor %}
+                    </tbody>
+                </table>
+            <div style="background: #e3f0fc; border-left: 4px solid #0078d4; padding: 16px; margin-bottom: 24px;">
+                <strong>Resumo do Dia:</strong><br>
+                <p style="margin: 8px 0;">• {{ total_activities }} atividades registradas</p>
+                {% for tipo, qtd in summary.items() %}
+                    <p style="margin: 0;">• {{ qtd }} atividade(s) de {{ tipo }}</p>
+                {% endfor %}
+            </div>
+            <p style="margin-bottom: 16px;">Atenciosamente,</p>
+            <p style="margin-bottom: 16px;"><strong>Equipe Ferramentaria {{ area_name }}</strong></p>
+                    </div>
+        <div style="border-top: 1px solid #e5e5e5; padding: 16px 32px; font-size: 0.95em; color: #888; background: #fafbfc;">
+            Este é um relatório automático gerado pelo sistema.<br>
+            Em caso de dúvidas, entre em contato: <a href="mailto:Victor.nascimento@canpack.com" style="color: #0078d4; text-decoration: none;">Victor.nascimento@canpack.com</a>
+        </div>
+    </div>
+</body>
+</html>

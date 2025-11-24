@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Histórico de Descartes{% endblock %}
+
+{% block content %}
+<div class="background-image-tampas"></div>
+    <div class="relatorio-container production-container">
+        <!-- Cabeçalho da Página -->
+        <div class="relatorio-container">
+            <div class="section-header">
+                <h2 class="section-title">Histórico de Descartes</h2>
+            </div>
+
+            <!-- Formulário de Filtros -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    
+                    <form id="filtroForm" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Pesquisar</label>
+                            <input type="text" class="form-control" id="searchInput" placeholder="Código ou operador...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Data Inicial</label>
+                            <input type="date" class="form-control" id="dataInicial">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Data Final</label>
+                            <input type="date" class="form-control" id="dataFinal">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end gap-2">
+                            <button type="button" class="btn btn-success flex-grow-1" onclick="exportarExcel()">
+                                <i class="fas fa-file-excel me-2"></i>Excel
+                            </button>
+                            <button type="button" class="btn btn-primary flex-grow-1" id="filtrarBtn">
+                                <i class="fas fa-filter me-2"></i>Filtrar
+                            </button>
+                        </div>                        
+                    </form>
+                </div>
+            </div>
+
+            <!-- Container dos Descartes -->
+            <div class="row g-4" id="descartes-container">
+                <!-- Cards serão inseridos aqui via JavaScript -->
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let allDescartes = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            const response = await fetch('/api/ferramentas/descartadas');
+            allDescartes = await response.json();
+            renderDescartes(allDescartes);
+
+            document.getElementById('filtrarBtn').addEventListener('click', aplicarFiltros);
+            document.getElementById('searchInput').addEventListener('input', aplicarFiltros);
+        } catch (error) {
+            console.error('Erro ao carregar descartes:', error);
+            showError(error.message);
+        }
+    });
+
+    function aplicarFiltros() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const dataInicial = document.getElementById('dataInicial').value;
+        const dataFinal = document.getElementById('dataFinal').value;
+
+        const filteredDescartes = allDescartes.filter(descarte => {
+            const matchesSearch = (descarte.codigo?.toLowerCase().includes(searchTerm) ||
+                                descarte.operador?.toLowerCase().includes(searchTerm) ||
+                                descarte.motivo?.toLowerCase().includes(searchTerm));
+
+            if (!matchesSearch) return false;
+
+            if (dataInicial || dataFinal) {
+                const descarteDate = new Date(descarte.data_descarte);
+                
+                if (dataInicial && new Date(dataInicial) > descarteDate) return false;
+                if (dataFinal && new Date(dataFinal) < descarteDate) return false;
+            }
+
+            return true;
+        });
+
+        renderDescartes(filteredDescartes);
+    }
+
+    function renderDescartes(descartes) {
+        const container = document.getElementById('descartes-container');
+        
+        if (descartes.length === 0) {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Nenhuma ferramenta encontrada com os filtros atuais.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = descartes.map(descarte => `
+            <div class="col-md-4 mb-4">
+                <div class="card descarte-card">
+                    <div class="card-header text-black">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-tools me-2"></i>${descarte.codigo || 'Não informado'}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="descarte-info">
+                            <small class="text-muted d-block mb-1">Data do Descarte</small>
+                            <strong>${formatarData(descarte.data_descarte)}</strong>
+                        </div>
+                        <div class="descarte-info">
+                            <small class="text-muted d-block mb-1">Operador</small>
+                            <strong>${descarte.operador || 'Não informado'}</strong>
+                        </div>
+                        <div class="descarte-motivo">
+                            <small class="text-muted d-block mb-2">Motivo do Descarte</small>
+                            <p class="mb-0">${descarte.motivo || 'Nenhum motivo registrado'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function showError(message) {
+        document.getElementById('descartes-container').innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Erro ao carregar histórico de descartes: ${message}
+                </div>
+            </div>
+        `;
+    }
+
+    function formatarData(dataString) {
+        if (!dataString) return 'Não informada';
+        
+        const isoFormat = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/;
+        const ddmmyyyyFormat = /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/;
+        const ddmmyyyyDashFormat = /^\d{2}-\d{2}-\d{4} \d{2}:\d{2}$/;
+
+        let data;
+
+        if (isoFormat.test(dataString)) {
+            data = new Date(dataString);
+        } else if (ddmmyyyyFormat.test(dataString)) {
+            const [dia, mes, anoHora] = dataString.split('/');
+            const [ano, hora] = anoHora.split(' ');
+            const [horas, minutos] = hora.split(':');
+            data = new Date(ano, mes - 1, dia, horas, minutos);
+        } else if (ddmmyyyyDashFormat.test(dataString)) {
+            const [dia, mes, anoHora] = dataString.split('-');
+            const [ano, hora] = anoHora.split(' ');
+            const [horas, minutos] = hora.split(':');
+            data = new Date(ano, mes - 1, dia, horas, minutos);
+        } else {
+            return 'Data inválida';
+        }
+
+        return data.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function exportarExcel() {
+    // Pegar os valores dos filtros atuais
+    const searchInput = document.getElementById('searchInput').value;
+    const dataInicial = document.getElementById('dataInicial').value;
+    const dataFinal = document.getElementById('dataFinal').value;
+
+    // Construir URL com os filtros
+    let url = '/api/descartes/export?';
+    if (searchInput) url += `search=${encodeURIComponent(searchInput)}&`;
+    if (dataInicial) url += `dataInicial=${encodeURIComponent(dataInicial)}&`;
+    if (dataFinal) url += `dataFinal=${encodeURIComponent(dataFinal)}&`;
+
+    // Fazer o download
+    window.location.href = url;
+}
+
+    document.getElementById('exportarExcelBtn').addEventListener('click', exportarExcel);
+    document.getElementById('filtrarBtn').addEventListener('click', aplicarFiltros);
+</script>
+{% endblock %}

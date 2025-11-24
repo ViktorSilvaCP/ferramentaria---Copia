@@ -1,0 +1,944 @@
+{% extends "base.html" %}
+
+{% block title %}Histórico de Ações{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Container principal com largura total */
+.full-container {
+   width: 98%;
+    margin: 0 auto;
+    padding: 20px 10px;
+}
+
+/* Cabeçalho da página */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Área de filtros */
+.filter-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.filter-item {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* Tabela responsiva */
+.table-responsive {
+    width: 100%;  /* Alterado de 1200px para 100% */
+    max-width: 100%;
+    background: white;
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    overflow-x: auto;
+}
+
+.custom-table {
+    width: 100%;
+    min-width: 1400px;  /* Adicionado para garantir um tamanho mínimo */
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.custom-table th {
+    background: var(--primary-color);
+    color: white;
+    padding: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    white-space: nowrap;
+    text-align: center;  /* Adicionado para centralizar títulos */
+}
+
+.custom-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+    white-space: normal;
+    text-align: center;  /* Adicionado para centralizar conteúdo */
+}
+
+.custom-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Botões de ação */
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-action {
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.btn-download {
+    background: var(--success-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1.5rem;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-download:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .full-container {
+        width: 100%;
+        padding: 10px 5px;
+    }
+
+    .page-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+
+    .filter-item {
+        min-width: 100%;
+    }
+
+    .custom-table {
+        font-size: 0.875rem;
+    }
+
+    .btn-action {
+        padding: 0.4rem 0.8rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="background-image"></div>
+<div class="full-container">
+    <!-- Cabeçalho com título e botão de download -->
+    <div class="page-header">
+        <h2>Histórico de Ações</h2>
+        <button onclick="exportarExcel()" class="btn-download">
+            <i class="fas fa-file-excel"></i>
+            Exportar Excel
+        </button>
+    </div>
+
+    <!-- Container de filtros -->
+    <div class="filter-container">
+        <form method="get" action="{{ url_for('historico_acoes') }}">
+            <div class="filter-row">
+                <div class="col-auto">
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        name="search" 
+                        placeholder="Pesquise por ID ou Nome" 
+                        value="{{ request.args.get('search', '') }}">
+                </div>
+                <!-- Nome -->
+                <div class="col-auto">
+                    <select class="form-control" name="nome" id="nomeSelect">
+                        <option value="">Selecione o Nome</option>
+                    </select>
+                </div>
+
+                <!-- Filtro de Data -->
+                <div class="col-auto">
+                    <input 
+                        type="date" 
+                        class="form-control" 
+                        name="data" 
+                        value="{{ request.args.get('data', '') if request.args.get('data') else '' }}">
+                </div>
+
+                <!-- Horário Início -->
+                <div class="col-auto">
+                    <input 
+                        type="time" 
+                        class="form-control" 
+                        name="horario_inicio" 
+                        value="{{ request.args.get('horario_inicio', '') }}">
+                </div>
+
+                <!-- Tipo de Ação -->
+                <div class="col-auto">
+                    <select class="form-control" name="tipo_acao" id="tipoAcaoSelect">
+                        <option value="">Selecione o Tipo</option>
+                    </select>
+                </div>
+
+                <!-- Equipamento -->
+                <div class="col-auto">
+                    <select class="form-control" name="equipamento" id="equipamentoSelect">
+                        <option value="">Selecione o Equipamento</option>
+                    </select>
+                </div>
+
+                <!-- Código de Falha -->
+                <div class="col-auto">
+                    <select class="form-control" name="codigo_falha" id="codigoFalhaSelect">
+                        <option value="">Selecione o Código</option>
+                    </select>
+                </div>
+
+                <!-- Add area filter for supervisors -->
+                {% if current_user.area == 'supervisor' %}
+                <div class="col-auto">
+                    <select class="form-control" name="area">
+                        <option value="">Todas as Áreas</option>
+                        <option value="tampas" {% if request.args.get('area') == 'tampas' %}selected{% endif %}>Tampas</option>
+                        <option value="latas" {% if request.args.get('area') == 'latas' %}selected{% endif %}>Latas</option>
+                    </select>
+                </div>
+                {% endif %}
+
+                <!-- Botão Filtrar -->
+                <div class="col-auto">
+                    <button 
+                        type="submit" 
+                        class="btn btn-primary">
+                        Filtrar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabela de dados -->
+    <div class="table-responsive">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Data</th>
+                    <th>Nome</th>
+                    <th>Hora Início</th>
+                    <th>Tipo de Ação</th>
+                    <th>Equipamento</th>
+                    <th>Solicitante</th>
+                    <th>Código Falha</th>
+                    <th>Causa encontrada</th>
+                    <th>Trabalho executado</th>
+                    <th>Comentário</th>
+                    <th>Foto</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if registros|length > 0 %}
+                    {% for registro in registros %}
+                        <tr>
+                            <td>{{ registro[0] }}</td> <!-- ID -->
+                            <td>{{ registro[1] }}</td> <!-- Data -->
+                            <script>                       
+                                function formatarDataBR(dataISO) {
+                                    const [ano, mes, dia] = dataISO.split("-");
+                                    return `${dia}/${mes}/${ano}`;
+                                }
+
+                                document.querySelectorAll("td.data").forEach(td => {
+                                    td.textContent = formatarDataBR(td.textContent);
+                                });
+                                </script>
+                            <td>{{ registro[2] }}</td> <!-- Nome -->
+                            <td>{{ registro[3] }}</td> <!-- Hora Início -->
+                            <td>{{ registro[4] }}</td> <!-- Tipo de Ação -->
+                            <td>{{ registro[5] }}</td> <!-- Equipamento -->
+                            <td>{{ registro[6] }}</td> <!-- Solicitante -->
+                            <td>{{ registro[7] }}</td> <!-- Código Falha -->
+                            <td>{{ registro[8] }}</td> <!-- Causa encontrada -->
+                            <td>{{ registro[9] }}</td> <!-- Trabalho executado -->
+                            <td>{{ registro[10] }}</td> <!-- Comentário -->
+                            <td>
+                                {% if registro[11] != "N/A" %}
+                                    <button 
+                                        class="btn btn-primary btn-sm"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#photoModal"
+                                        onclick="showPhoto('{{ registro[11].replace('\\', '/') }}')">
+                                        Ver Foto
+                                    </button>
+                                {% else %}
+                                    Sem foto
+                                {% endif %}
+                                <td>
+                                    <button class="btn btn-warning btn-sm" onclick='editRow({{ registro | tojson | safe }})'>Editar</button>
+                                </td>
+                                                   
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="12" style="text-align: center; font-style: bold; color: rgb(122, 121, 121);">
+                            <strong>Nenhum registro encontrado.</strong>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary">
+                    <h5 class="modal-title text-white" id="editModalLabel">Editar Registro</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editForm" class="needs-validation" novalidate>
+                        <input type="hidden" id="editId" name="id">
+                        <input type="hidden" id="editArea" name="area"> <!-- Add this line to keep the area value hidden -->
+                        
+                        <!-- Informações Principais -->
+                        <div class="row mb-4">
+                            <h6 class="mb-3 text-primary">Informações Principais</h6>
+                            <div class="col-md-3 mb-3">
+                                <label for="editData" class="form-label">Data</label>
+                                <input type="date" class="form-control" id="editData" name="data" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="editHorarioInicio" class="form-label">Horário Início</label>
+                                <input type="time" class="form-control" id="editHorarioInicio" name="horario_inicio" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="editNome" class="form-label">Nome</label>
+                                <input type="text" class="form-control" id="editNome" name="nome" required>
+                            </div>
+                        </div>
+    
+                        <!-- Detalhes da Ação -->
+                        <div class="row mb-4">
+                            <h6 class="mb-3 text-primary">Detalhes da Ação</h6>
+                            <div class="col-md-4 mb-3">
+                                <label for="editTipoAcao" class="form-label">Tipo de Ação</label>
+                                <select class="form-control" id="editTipoAcao" name="tipo_acao">
+                                    <option value="">Selecione o Tipo</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="editEquipamento" class="form-label">Equipamento</label>
+                                <select class="form-control" id="editEquipamento" name="equipamento">
+                                    <option value="">Selecione o Equipamento</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="editCodigoFalha" class="form-label">Código de Falha</label>
+                                <select class="form-control" id="editCodigoFalha" name="codigo_falha">
+                                    <option value="">Selecione o Código</option>
+                                </select>
+                            </div>
+                        </div>
+    
+                        <!-- Descrições -->
+                        <div class="row mb-4">
+                            <h6 class="mb-3 text-primary">Descrições</h6>
+                            <div class="col-md-6 mb-3">
+                                <label for="editCausaEncontrada" class="form-label">Causa Encontrada</label>
+                                <textarea class="form-control" id="editCausaEncontrada" name="causa_encontrada" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="editTrabalhoExecutado" class="form-label">Trabalho Executado</label>
+                                <textarea class="form-control" id="editTrabalhoExecutado" name="trabalho_executado" rows="3"></textarea>
+                            </div>
+                        </div>
+    
+                        <!-- Informações Adicionais -->
+                        <div class="row mb-4">
+                            <h6 class="mb-3 text-primary">Informações Adicionais</h6>
+                            <div class="col-md-6 mb-3">
+                                <label for="editSolicitante" class="form-label">Solicitante</label>
+                                <input type="text" class="form-control" id="editSolicitante" name="solicitante">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="editComentario" class="form-label">Comentário</label>
+                                <textarea class="form-control" id="editComentario" name="comentario" rows="2"></textarea>
+                            </div>
+                        </div>
+    
+                        <!-- Foto -->
+                        <div class="row">
+                            <h6 class="mb-3 text-primary">Foto</h6>
+                            <div class="col-md-6 mb-3">
+                                <label for="editFoto" class="form-label">Atualizar Foto</label>
+                                <input type="file" class="form-control" id="editFoto" name="foto" accept=".jpg,.jpeg,.png,.gif,.pdf,.mp4,.avi,.mov,.mkv,.jfif">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div id="currentPhotoPreview" class="text-center p-2 border rounded">
+                                    <!-- Preview da foto atual -->
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="saveChanges()">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add this CSS to your existing styles -->
+    <style>
+    .modal-body {
+            max-height: calc(100vh - 200px); /* Ajusta a altura máxima */
+            overflow-y: auto;
+            padding: 1.5rem; /* Ajusta o espaçamento interno */
+            margin-top: 5px;
+            background-color: #f8f9fa;
+            box-sizing: border-box; /* Inclui o padding na largura e altura totais */
+            border-radius: 5px; /* Mantém o design arredondado */
+        }
+        
+        .modal-body h6 {
+            font-weight: 600;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 0.5rem;
+        }
+    
+        #currentPhotoPreview img {
+            max-height: 150px;
+            object-fit: contain;
+        }
+    
+        .form-label {
+            font-weight: 500;
+            color: #555;
+        }
+    
+        .modal-content {
+            border-radius: 0.5rem;
+            max-width: 80vw; /* Limita a largura máxima do modal */
+            max-height: 80vh; /* Limita a altura máxima do modal */
+            min-width: 300px; /* Define a largura mínima do modal */
+            min-height: 300px; /* Define a altura mínima do modal */
+            overflow: hidden; /* Garante que o conteúdo não ultrapasse os limites */
+        }
+    
+        .modal-header {
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
+        }
+    
+        .modal-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* Garante que a imagem se encaixe */
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 5px;
+            background-color: white;
+            margin: auto; /* Centraliza a imagem dentro do modal */
+        }
+    </style>
+
+    <script>
+        function editRow(registro) {
+            // Convert date from DD-MM-YYYY to YYYY-MM-DD for the input field
+            const dataParts = registro[1].split('-');
+            const dataFormatada = `${dataParts[2]}-${dataParts[1]}-${dataParts[0]}`;
+            
+            // Preenche os campos do modal com os dados do registro
+            document.getElementById('editId').value = registro[0];  // ID
+            document.getElementById('editData').value = dataFormatada;  // Data formatada
+            document.getElementById('editNome').value = registro[2];  // Nome
+            document.getElementById('editTipoAcao').value = registro[4];  // Tipo de Ação
+            document.getElementById('editEquipamento').value = registro[5];  // Equipamento
+            document.getElementById('editSolicitante').value = registro[6];  // Solicitante
+            document.getElementById('editCodigoFalha').value = registro[7];  // Código de Falha
+            document.getElementById('editCausaEncontrada').value = registro[8];  // Causa Encontrada
+            document.getElementById('editTrabalhoExecutado').value = registro[9];  // Trabalho Executado
+            document.getElementById('editComentario').value = registro[10];  // Comentário
+            document.getElementById('editHorarioInicio').value = registro[3];  // Horário Início
+            document.getElementById('editArea').value = registro[12]; // Store the original area
+    
+            // Adicionar preview da foto existente se houver
+            const previewDiv = document.getElementById('currentPhotoPreview');
+            if (registro[11] && registro[11] !== "N/A") {
+                // Garantir que usamos apenas barras simples
+                const fotoPath = registro[11].replace(/\\/g, '/').replace(/\/+/g, '/');
+                previewDiv.innerHTML = `
+                    <img src="/${fotoPath}" 
+                         alt="Foto atual" 
+                         class="img-fluid mt-2" 
+                         style="max-height: 50vh;">
+                    <p class="mt-2">Foto atual</p>`;
+            } else {
+                previewDiv.innerHTML = '<p class="mt-2">Sem foto</p>';
+            }
+    
+            // Exibe o modal para edição
+            const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+            editModal.show();
+        }
+    
+        function saveChanges() {
+            const formData = new FormData();
+            
+            // Adiciona todos os campos do formulário
+            formData.append('id', document.getElementById('editId').value);
+            formData.append('data', document.getElementById('editData').value);
+            formData.append('nome', document.getElementById('editNome').value);
+            formData.append('tipo_acao', document.getElementById('editTipoAcao').value);
+            formData.append('equipamento', document.getElementById('editEquipamento').value);
+            formData.append('solicitante', document.getElementById('editSolicitante').value);
+            formData.append('codigo_falha', document.getElementById('editCodigoFalha').value);
+            formData.append('causa_encontrada', document.getElementById('editCausaEncontrada').value);
+            formData.append('trabalho_executado', document.getElementById('editTrabalhoExecutado').value);
+            formData.append('comentario', document.getElementById('editComentario').value);
+            formData.append('horario_inicio', document.getElementById('editHorarioInicio').value);
+            formData.append('area', document.getElementById('editArea').value); // Keep the original area
+    
+            // Adiciona a foto se uma nova foi selecionada
+            const fotoInput = document.getElementById('editFoto');
+            if (fotoInput.files.length > 0) {
+                formData.append('foto', fotoInput.files[0]);
+            }
+    
+            // Envia as alterações via Fetch API para o backend
+            fetch(`/editar_relatorio/${formData.get('id')}`, {
+                method: 'POST',
+                body: formData // Enviar o FormData ao invés de JSON
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Alterações salvas com sucesso!');
+                    updateRow(data.registro, data.nome_editor);
+                    const editModal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                    editModal.hide();
+                } else {
+                    alert('Erro: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Falha ao salvar alterações.');
+            });
+        }
+    
+        function updateRow(editedData, nomeEditor) {
+            // Aqui, você precisa identificar qual linha foi editada, provavelmente através do ID
+            const row = document.getElementById(`row-${editedData.id}`);
+    
+            // Atualiza o conteúdo da linha
+            row.cells[1].innerText = editedData.data;  // Exemplo de atualização
+            row.cells[2].innerText = editedData.nome;  // Nome atualizado
+            row.cells[3].innerText = editedData.tipo_acao;  // Tipo de Ação atualizado
+            row.cells[4].innerText = editedData.equipamento;  // Equipamento atualizado
+            row.cells[5].innerText = editedData.solicitante;  // Solicitante atualizado
+            row.cells[6].innerText = editedData.codigo_falha;  // Código de Falha atualizado
+            row.cells[7].innerText = editedData.causa_encontrada;  // Causa Encontrada
+            row.cells[8].innerText = editedData.trabalho_executado;  // Trabalho Executado
+            row.cells[9].innerText = editedData.comentario;  // Comentário atualizado
+            row.cells[10].innerText = editedData.horario_inicio;  // Horário Início atualizado
+    
+            // Adiciona uma classe para destacar a linha como editada
+            row.classList.add('edited-row');
+    
+            // Adiciona o nome do editor na coluna de "editado por"
+            row.cells[11].innerText = `Editado por: ${nomeEditor}`;  // Aqui você exibe o nome do editor
+        }
+
+        function showPhoto(photoUrl) {
+            const modalPhoto = document.getElementById('modalPhoto');
+            // Garantir que usamos apenas barras simples
+            const cleanPath = photoUrl.replace(/\\/g, '/').replace(/\/+/g, '/');
+            modalPhoto.src = `/${cleanPath}`;
+        }
+    </script>
+    
+    <!-- Paginação -->
+    <div class="d-flex justify-content-center">
+        <nav>
+            <ul class="pagination">
+                {% set query_params = request.args.copy() %}
+                {% do query_params.pop('page', None) %}
+
+                {# Previous Page #}
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('historico_acoes', page=page-1, **query_params) }}">&laquo;</a>
+                </li>
+
+                {% set window = 2 %}
+                {% set ns = namespace(last=0) %}
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == 1 or p == total_pages or (p >= page - window and p <= page + window) %}
+                        {% if p > ns.last + 1 %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('historico_acoes', page=p, **query_params) }}">{{ p }}</a>
+                        </li>
+                        {% set ns.last = p %}
+                    {% endif %}
+                {% endfor %}
+
+                {# Next Page #}
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('historico_acoes', page=page+1, **query_params) }}">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- Modais -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title text-white" id="editModalLabel">Editar Registro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm" class="needs-validation" novalidate>
+                    <input type="hidden" id="editId" name="id">
+                    <input type="hidden" id="editArea" name="area"> <!-- Add this line to keep the area value hidden -->
+                    
+                    <!-- Informações Principais -->
+                    <div class="row mb-4">
+                        <h6 class="mb-3 text-primary">Informações Principais</h6>
+                        <div class="col-md-3 mb-3">
+                            <label for="editData" class="form-label">Data</label>
+                            <input type="date" class="form-control" id="editData" name="data" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="editHorarioInicio" class="form-label">Horário Início</label>
+                            <input type="time" class="form-control" id="editHorarioInicio" name="horario_inicio" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editNome" class="form-label">Nome</label>
+                            <input type="text" class="form-control" id="editNome" name="nome" required>
+                        </div>
+                    </div>
+
+                    <!-- Detalhes da Ação -->
+                    <div class="row mb-4">
+                        <h6 class="mb-3 text-primary">Detalhes da Ação</h6>
+                        <div class="col-md-4 mb-3">
+                            <label for="editTipoAcao" class="form-label">Tipo de Ação</label>
+                            <select class="form-control" id="editTipoAcao" name="tipo_acao">
+                                <option value="">Selecione o Tipo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editEquipamento" class="form-label">Equipamento</label>
+                            <select class="form-control" id="editEquipamento" name="equipamento">
+                                <option value="">Selecione o Equipamento</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editCodigoFalha" class="form-label">Código de Falha</label>
+                            <select class="form-control" id="editCodigoFalha" name="codigo_falha">
+                                <option value="">Selecione o Código</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Descrições -->
+                    <div class="row mb-4">
+                        <h6 class="mb-3 text-primary">Descrições</h6>
+                        <div class="col-md-6 mb-3">
+                            <label for="editCausaEncontrada" class="form-label">Causa Encontrada</label>
+                            <textarea class="form-control" id="editCausaEncontrada" name="causa_encontrada" rows="3"></textarea>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editTrabalhoExecutado" class="form-label">Trabalho Executado</label>
+                            <textarea class="form-control" id="editTrabalhoExecutado" name="trabalho_executado" rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Informações Adicionais -->
+                    <div class="row mb-4">
+                        <h6 class="mb-3 text-primary">Informações Adicionais</h6>
+                        <div class="col-md-6 mb-3">
+                            <label for="editSolicitante" class="form-label">Solicitante</label>
+                            <input type="text" class="form-control" id="editSolicitante" name="solicitante">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editComentario" class="form-label">Comentário</label>
+                            <textarea class="form-control" id="editComentario" name="comentario" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Foto -->
+                    <div class="row">
+                        <h6 class="mb-3 text-primary">Foto</h6>
+                        <div class="col-md-6 mb-3">
+                            <label for="editFoto" class="form-label">Atualizar Foto</label>
+                            <input type="file" class="form-control" id="editFoto" name="foto" accept=".jpg,.jpeg,.png,.gif,.pdf,.mp4,.avi,.mov,.mkv,.jfif">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div id="currentPhotoPreview" class="text-center p-2 border rounded">
+                                <!-- Preview da foto atual -->
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveChanges()">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="photoModalLabel">Foto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalPhoto" src="" alt="Foto" class="img-fluid">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Corrigir script de formatação de data
+    function formatarDataBR(dataISO) {
+        if (!dataISO) return '';
+        const [ano, mes, dia] = dataISO.split("-");
+        return `${dia}/${mes}/${ano}`;
+    }
+
+    document.querySelectorAll("td.data").forEach(td => {
+        td.textContent = formatarDataBR(td.textContent);
+    });
+
+    // Inicializar os selects
+    carregarOpcoesSelects();
+});
+
+function showPhoto(photoUrl) {
+    const modalPhoto = document.getElementById('modalPhoto');
+    // Garantir que usamos apenas barras simples
+    const cleanPath = photoUrl.replace(/\\/g, '/').replace(/\/+/g, '/');
+    modalPhoto.src = `/${cleanPath}`;
+}
+
+function enableFullScreen(imagePath) {
+    // Cria um elemento de imagem temporário para exibição em full-screen
+    const fullScreenImage = document.createElement("img");
+    fullScreenImage.src = imagePath;
+    fullScreenImage.style.width = "100%";
+    fullScreenImage.style.height = "100%";
+    fullScreenImage.style.objectFit = "contain";
+    fullScreenImage.style.backgroundColor = "black";
+
+    // Adiciona o elemento ao corpo do documento
+    document.body.appendChild(fullScreenImage);
+
+    // Solicita que a imagem entre em modo de full-screen
+    fullScreenImage.requestFullscreen().catch((err) => {
+        console.error("Failed to enable full-screen mode:", err.message);
+    });
+
+    // Remove a imagem do DOM quando sai do full-screen
+    fullScreenImage.addEventListener("fullscreenchange", () => {
+        if (!document.fullscreenElement) {
+            fullScreenImage.remove();
+        }
+    });
+}
+
+function exportarExcel() {
+    // Coletar todos os filtros atuais da URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Construir a URL de exportação com os mesmos filtros
+    const exportUrl = `/export_excel_acoes?${urlParams.toString()}`;
+    
+    // Fazer o download
+    window.location.href = exportUrl;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    carregarOpcoesSelects();
+});
+
+function carregarOpcoesSelects() {
+    fetch('/api/get_filter_options')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                console.error('Server error:', data.error);
+                return;
+            }
+
+            const selects = {
+                'nomeSelect': data.nomes || [],
+                'tipoAcaoSelect': data.tipos_acao || [],
+                'equipamentoSelect': data.equipamentos || [],
+                'codigoFalhaSelect': data.codigos_falha || [],
+                'solicitanteSelect': data.solicitantes || [],
+                'editTipoAcao': data.tipos_acao || [],
+                'editEquipamento': data.equipamentos || [],
+                'editCodigoFalha': data.codigos_falha || []
+            };
+
+            for (const [selectId, opcoes] of Object.entries(selects)) {
+                if (Array.isArray(opcoes)) {
+                    preencherSelect(selectId, opcoes);
+                } else {
+                    console.warn(`Opções inválidas para ${selectId}:`, opcoes);
+                    preencherSelect(selectId, []);
+                }
+            }
+
+            restaurarFiltrosDaURL();
+        })
+        .catch(error => {
+            console.error('Erro ao carregar opções:', error);
+            const selectIds = [
+                'nomeSelect', 'tipoAcaoSelect', 'equipamentoSelect',
+                'codigoFalhaSelect', 'solicitanteSelect', 'editTipoAcao',
+                'editEquipamento', 'editCodigoFalha'
+            ];
+            selectIds.forEach(id => preencherSelect(id, []));
+        });
+}
+
+function preencherSelect(selectId, opcoes) {
+    const select = document.getElementById(selectId);
+    if (!select) {
+        console.warn(`Select não encontrado: ${selectId}`);
+        return;
+    }
+
+    try {
+        // Save current value
+        const valorAtual = select.value;
+        
+        // Clear select but keep first option
+        const primeiraOpcao = select.options[0]?.cloneNode(true);
+        select.innerHTML = '';
+        if (primeiraOpcao) {
+            select.appendChild(primeiraOpcao);
+        }
+
+        // Add new options
+        opcoes
+            .filter(opcao => opcao !== null && opcao !== '')
+            .forEach(opcao => {
+                const option = document.createElement('option');
+                option.value = opcao;
+                option.textContent = opcao;
+                select.appendChild(option);
+            });
+
+        // Restore previous value if it exists in new options
+        if (valorAtual && opcoes.includes(valorAtual)) {
+            select.value = valorAtual;
+        }
+    } catch (error) {
+        console.error(`Erro ao preencher select ${selectId}:`, error);
+    }
+}
+
+// Função para restaurar valores dos filtros da URL
+function restaurarFiltrosDaURL() {
+    const params = new URLSearchParams(window.location.search);
+    params.forEach((value, key) => {
+        const elemento = document.querySelector(`[name="${key}"]`);
+        if (elemento) elemento.value = value;
+    });
+}
+
+// Modificar a função editRow para garantir que o modal seja aberto corretamente
+window.editRow = function(registro) {
+    console.log('Editando registro:', registro); // Debug
+
+    // Convert date from DD-MM-YYYY to YYYY-MM-DD for the input field
+    const dataParts = registro[1].split('-');
+    const dataFormatada = `${dataParts[2]}-${dataParts[1]}-${dataParts[0]}`;
+    
+    // Preenche os campos do modal com os dados do registro
+    document.getElementById('editId').value = registro[0];
+    document.getElementById('editData').value = dataFormatada;
+    document.getElementById('editNome').value = registro[2];
+    document.getElementById('editHorarioInicio').value = registro[3];
+    document.getElementById('editTipoAcao').value = registro[4];
+    document.getElementById('editEquipamento').value = registro[5];
+    document.getElementById('editSolicitante').value = registro[6];
+    document.getElementById('editCodigoFalha').value = registro[7];
+    document.getElementById('editCausaEncontrada').value = registro[8];
+    document.getElementById('editTrabalhoExecutado').value = registro[9];
+    document.getElementById('editComentario').value = registro[10];
+    document.getElementById('editArea').value = registro[12] || '';
+
+    // Adicionar preview da foto existente se houver
+    const previewDiv = document.getElementById('currentPhotoPreview');
+    if (registro[11] && registro[11] !== "N/A") {
+        const fotoPath = registro[11].replace(/\\/g, '/'); // Substitui todas as barras invertidas por barras normais
+        previewDiv.innerHTML = `
+            <img src="/${fotoPath}" 
+                 alt="Foto atual" 
+                 class="img-fluid mt-2" 
+                 style="max-height: 50vh;">
+            <p class="mt-2">Foto atual</p>`;
+    } else {
+        previewDiv.innerHTML = '<p class="mt-2">Sem foto</p>';
+    }
+
+    // Garantir que o Bootstrap está disponível e abrir o modal
+    if (typeof bootstrap !== 'undefined') {
+        const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+        editModal.show();
+    } else {
+        console.error('Bootstrap não está disponível');
+    }
+};
+</script>
+{% endblock %}

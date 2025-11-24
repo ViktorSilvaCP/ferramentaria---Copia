@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório Diário{% endblock %}
+
+{% block content %}
+<!-- Adiciona a imagem de fundo -->
+<div class="background-image"></div>
+
+<div class="container">
+    <div class="relatorio-container">
+        <div class="section-header">
+            <h3 class="section-title">Relátorio Diário</h3>
+            <p class="text-muted">Inserir ações diárias.</p>
+        </div>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-grid">
+                <!-- Nome -->
+                <div class="form-group">
+                    <label for="nome">Nome:</label>
+                    <input type="text" id="nome" name="nome" value="{{ current_user.nome }}" readonly>
+                </div>
+                <!-- Tipo da Ação -->
+                <div class="form-group">
+                    <label for="tipo_acao">Tipo de ação:</label>
+                    <select id="tipo_acao" name="tipo_acao" required>
+                        <option value="" disabled selected>Selecione tipo da ação</option>
+                        <option value="5S">5'S</option>
+                        <option value="Apoio">Apoio a Operação</option>
+                        <option value="Corretiva">Corretiva</option>
+                        <option value="Preventiva">Preventiva</option>
+                        <option value="Retrabalho">Retrabalho</option>
+                        <option value="Inspeção">Inspeção</option>
+                        <option value="Melhoria">Melhoria</option>
+                        <option value="Programada">Programada</option>
+                        <option value="Qualificação">Qualificação</option>
+                        <option value="Preditiva">Preditiva</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                    
+                <!-- Equipamento -->
+                <div class="form-group">
+                    <label for="equipamento">Equipamento:</label>
+                    <select id="equipamento" name="equipamento" required>
+                        <option value="" disabled selected>Selecione um equipamento</option>
+                        {% if current_user.area == 'tampas' %}
+                        <!-- Equipamentos para área de tampas -->
+                        <option value="SHELL PRESS">SHELL PRESS</option>
+                        <option value="CONVERSION 1">CONVERSION 1</option>
+                        <option value="CONVERSION 2">CONVERSION 2</option>
+                        <option value="CONVERSION 3">CONVERSION 3</option>
+                        <option value="CONVERSION 4">CONVERSION 4</option>  
+                        <option value="LINER">LINER</option>
+                        <option value="Balancer">Balancer</option>
+                        {% elif current_user.area == 'latas' %}
+                        <!-- Equipamentos para área de latas -->
+                        <option value="BodyMaker V1">BodyMaker V1</option>
+                        <option value="BodyMaker V2">BodyMaker V2</option>
+                        <option value="BodyMaker V3">BodyMaker V3</option>
+                        <option value="BodyMaker V4">BodyMaker V4</option>
+                        <option value="BodyMaker V5">BodyMaker V5</option>
+                        <option value="BodyMaker V6">BodyMaker V6</option>
+                        <option value="BodyMaker V7">BodyMaker V7</option>
+                        <option value="BodyMaker W1">BodyMaker W1</option>
+                        <option value="BodyMaker W2">BodyMaker W2</option>
+                        <option value="BodyMaker W3">BodyMaker W3</option>
+                        <option value="BodyMaker W4">BodyMaker W4</option>
+                        <option value="BodyMaker W5">BodyMaker W5</option>
+                        <option value="BodyMaker W6">BodyMaker W6</option>
+                        <option value="BodyMaker W7">BodyMaker W7</option>
+                        <option value="BodyMaker W8">BodyMaker W8</option>
+                        <option value="Cupper 22">Cupper 22</option>
+                        <option value="Cupper 23">Cupper 23</option>
+                        <option value="Necker 22">Necker 22</option>
+                        <option value="Necker 23">Necker 23</option>
+                        {% endif %}
+                        <option value="Interno">Interno</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+
+                <!-- Solicitante -->
+                <div class="form-group">
+                    <label for="solicitante" >Solicitante:</label>
+                    <input type="text" id="solicitante" name="solicitante" placeholder="Quem solicitou a intervenção" required>
+                </div>
+
+                <!-- Código de Falha -->
+                <div class="form-group">
+                    <label for="codigo_falha">Código de Falha:</label>
+                    <select id="codigo_falha" name="codigo_falha" required>
+                        <option value="" disabled selected>Selecione um código de falha</option>
+                        {% if current_user.area == 'tampas' %}
+                        <!-- Códigos de falha para tampas -->
+                        <option value="Apoio à Produção">Apoio à Produção</option>
+                        <option value="Dimensional Fora do Especificado">Dimensional Fora do Especificado</option>
+                        <option value="Ferramenta Desgastada">Ferramenta Desgastada</option>
+                        <option value="Fratura no Rebite">Fratura no Rebite</option>
+                        <option value="Embolamento de Lâmina">Embolamento de Lâmina</option>
+                        <option value="Estouro de Painel">Estouro de Painel</option>
+                        <option value="Falha no Corte">Falha no Corte</option>
+                        <option value="Inspeção e Medição">Inspeção e Medição</option>
+                        <option value="Limalha no Ferramental">Limalha no Ferramental</option>
+                        <option value="Ferramenta Danificada">Ferramenta Danificada</option>
+                        <option value="Metal Exposto">Metal Exposto</option>
+                        <option value="Mola Quebrada">Mola Quebrada</option>
+                        <option value="Retificação de Calços">Retificação de Calços</option>
+                        <option value="Retorno de Confete">Retorno de Confete</option>
+                        <option value="Retrabalho de Ferramentas">Retrabalho de Ferramentas</option>
+                        <option value="Risco">Risco</option>
+                        <option value="Soltura do Anel">Soltura do Anel</option>
+                        <option value="Tampa Amassada">Tampa Amassada</option>
+                        <option value="Troca do Código de Data">Troca do Código de Data</option>
+                        <option value="Troca dos Selos">Troca dos Selos</option>
+                        {% elif current_user.area == 'latas' %}
+                        <!-- Códigos de falha para latas -->
+                        <option value="Falha de extração">Falha de extração</option>
+                        <option value="Lata riscada">Lata riscada</option>
+                        <option value="Lata curta">Lata curta</option>
+                        <option value="Lata comprida">Lata comprida</option>
+                        <option value="1/2 lata">1/2 lata</option>
+                        <option value="Copo estourado">Copo estourado</option>
+                        <option value="Conversão">Conversão</option>
+                        <option value="Lata ovalizada">Lata ovalizada</option>
+                        <option value="Variação de paredes">Variação de paredes</option>
+                        <option value="Acúmulo de óxido">Acúmulo de óxido</option>
+                        <option value="Ferramenta danificada">Ferramenta danificada</option>
+                        <option value="Regeneração">Regeneração</option>
+                        <option value="Rejeição">Rejeição</option>
+                        <option value="Metal exposto">Metal exposto</option>
+                        <option value="Marcas">Marcas</option>
+                        <option value="Quebra">Quebra</option>
+                        <option value="Fratura do Domo">Fratura do Domo</option>
+                        <option value="Chanfro">Chanfro</option>
+                        <option value="Blush">Blush</option>
+                        <option value="Dimensional">Dimensional</option>
+                        <option value="Carga Axial">Carga Axial</option>
+                        <option value="Desgaste">Desgaste</option>
+                        <option value="Lata com orelha">Lata com orelha</option>
+                        <option value="Ajuste Progressão">Ajuste Progressão</option>
+                        <option value="Arranhão">Arranhão</option>
+                        <option value="Cabelo e corte irregular">Cabelo e corte irregular</option>
+                        <option value="Preventiva">Preventiva</option>
+                        <option value="Corretiva">Corretiva</option>
+                        <option value="5S">5S</option>
+                        <option value="Sorriso">Sorriso</option>
+                        <option value="Lata rasgada">Lata rasgada</option>
+                        <option value="Risco/necker">Risco/necker</option>
+                        <option value="Missed part">Missed part</option>
+                        <option value="Desalinhamento">Desalinhamento</option>
+                        <option value="Ondulação na base">Ondulação na base</option>
+                        <option value="Embolamento">Embolamento</option>
+                        <option value="Lata amassada">Lata amassada</option>
+                        <option value="Teste">Teste</option>
+                        <option value="Bucket conveyor">Bucket conveyor</option>
+                        <option value="Empeno">Empeno</option>
+                        <option value="Danificado">Danificado</option>
+                        <option value="Bleed through">Bleed through</option>
+                        <option value="Metal exposto">Metal exposto</option>
+                        <option value="Trip">Trip</option>
+                        {% endif %}
+                        <option value="Outros">Outros</option>
+                    </select>
+                    
+                </div>
+
+                <!-- Causa Encontrada -->
+                <div class="form-group">
+                    <label for="causa_encontrada">Causa Encontrada:</label>
+                    <textarea type="text" id="causa_encontrada" name="causa_encontrada" placeholder="Causa do problema que foi encontrado" required></textarea>
+                </div>
+                 <!-- Causa Encontrada -->
+                 <div class="form-group">
+                    <label for="trabalho_executado" class="d-flex align-items-center">
+                        Trabalho executado:
+                        <i class="fas fa-info-circle help-icon ms-2" 
+                           data-bs-toggle="modal" 
+                           data-bs-target="#splitInfoModal"></i>
+                    </label>
+                    <textarea type="text" id="trabalho_executado" name="trabalho_executado" placeholder="Use ';' ou '+' para separar múltiplas ações" required></textarea>
+                </div>
+
+                <!-- Data -->
+                <div class="form-group">
+                    <label for="data">Data:</label>
+                    <input type="date" id="data" name="data" readonly required>
+                </div>
+
+                <!-- Horário Início -->
+                <div class="form-group">
+                    <label for="horario_inicio">Horário Início:</label>
+                    <input type="time" id="horario_inicio" name="horario_inicio" placeholder="10:30" required>
+                </div>
+
+                <!-- Horário Término -->
+                <div class="form-group">
+                    <label for="horario_termino">Horário Término:</label>
+                    <input type="time" id="horario_termino" name="horario_termino" placeholder="10:30" required>
+                </div>
+
+                <!-- Foto de Evidência (Drop) -->
+                <div class="form-group">
+                    <label for="foto">Foto de Evidência:</label>
+                    <div class="drop-area" id="drop-area">
+                        Arraste e solte a foto aqui ou clique para selecionar
+                        <input type="file" id="foto" name="foto" accept="image/*" hidden>
+                        <img id="preview" src="https://via.placeholder.com/150" alt="Preview da Imagem" style="display:none; margin-top:10px; max-width:100%;">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="comentario">Comentário:</label>
+                    <textarea name="comentario" id="comentario" placeholder="Comentário (ex: Ação realizada em 05/06/2024)"></textarea>
+                </div>
+            </div>
+            <br>
+            <!-- Add a hidden input for area -->
+            <input type="hidden" name="area" value="{{ current_user.area }}">
+            <!-- Campo hidden para marcar se a data foi alterada manualmente -->
+            <input type="hidden" name="data_alterada_manual" id="data_alterada_manual" value="false">
+            <button type="submit" class="btn">Salvar Relatório</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para exibir as mensagens -->
+<div class="modal fade" id="messageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalLabel">Mensagem</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- A mensagem será exibida aqui -->
+                <div id="messageContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de aviso -->
+<div class="modal fade" id="comentarioModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="comentarioModalLabel">Aviso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                É obrigatório especificar qual ação foi feita, caso seja marcado os equipamentos <strong>"Interno"</strong> ou <strong>"Outros"</strong>.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmação de data -->
+<div class="modal fade" id="dataModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Data Detectada</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Detectamos uma data no seu comentário: <strong id="dataDetectada"></strong></p>
+                <p>Deseja usar esta data para o relatório?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Não</button>
+                <button type="button" class="btn btn-primary" id="confirmarData">Sim, usar esta data</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Informação de Divisão de Ações -->
+<div class="modal fade" id="splitInfoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Como Dividir Ações</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Para registrar múltiplas ações a partir de um único relatório, separe cada atividade no campo <strong>"Trabalho executado"</strong> usando ponto e vírgula (<code>;</code>) ou o sinal de mais (<code>+</code>).</p>
+                <hr>
+                <h6>Exemplo:</h6>
+                <p><code>Ajuste no anel #21; Troca do calço #22 + Limpeza da ferramenta</code></p>
+                <p>Isso irá gerar 3 ações separadas:</p>
+                <ul>
+                    <li>Ajuste no anel #21</li>
+                    <li>Troca do calço #22</li>
+                    <li>Limpeza da ferramenta</li>
+                </ul>
+                <p class="text-muted small">O uso de vírgulas (<code>,</code>) ou da palavra "e" <strong>não</strong> dividirá mais as ações.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        const formattedDate = today.toISOString().split('T')[0];
+        document.getElementById('data').value = formattedDate;
+    });
+
+    
+    function detectarDataNoComentario(texto) {
+        
+        const padroesData = [
+            /(\d{1,2})\/(\d{1,2})\/(\d{4})/g,  
+            /(\d{1,2})-(\d{1,2})-(\d{4})/g,    
+            /(\d{4})-(\d{1,2})-(\d{1,2})/g,    
+            /(\d{1,2})\.(\d{1,2})\.(\d{4})/g   
+        ];
+
+        for (let padrao of padroesData) {
+            const match = padrao.exec(texto);
+            if (match) {
+                let dia, mes, ano;
+                
+                if (padrao.source.includes('yyyy-mm-dd')) {
+                    
+                    ano = parseInt(match[1]);
+                    mes = parseInt(match[2]);
+                    dia = parseInt(match[3]);
+                } else {
+                    
+                    dia = parseInt(match[1]);
+                    mes = parseInt(match[2]);
+                    ano = parseInt(match[3]);
+                }
+
+                
+                const data = new Date(ano, mes - 1, dia);
+                if (data.getFullYear() === ano && 
+                    data.getMonth() === mes - 1 && 
+                    data.getDate() === dia &&
+                    ano >= 2020 && ano <= 2030) {
+                    
+                    return {
+                        data: data,
+                        texto: match[0],
+                        formato: padrao.source
+                    };
+                }
+            }
+        }
+        return null;
+    }
+    function formatarDataParaInput(data) {
+        const ano = data.getFullYear();
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const dia = String(data.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+    }
+    let dataDetectada = null;
+    const dataModal = new bootstrap.Modal(document.getElementById('dataModal'));
+    const comentarioInput = document.getElementById('comentario');
+    const dataInput = document.getElementById('data');
+    const dataAlteradaManualInput = document.getElementById('data_alterada_manual');
+
+    
+    comentarioInput.addEventListener('input', function() {
+        const texto = this.value;
+        const dataEncontrada = detectarDataNoComentario(texto);
+        
+        if (dataEncontrada && !dataDetectada) {
+            dataDetectada = dataEncontrada;
+            document.getElementById('dataDetectada').textContent = dataEncontrada.texto;
+            dataModal.show();
+        } else if (!dataEncontrada) {
+            dataDetectada = null;
+        }
+    });
+
+    
+    document.getElementById('confirmarData').addEventListener('click', function() {
+        if (dataDetectada) {
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0); 
+
+            const dataSelecionada = dataDetectada.data;
+            const diffTime = hoje.getTime() - dataSelecionada.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 3) {
+                const dataLimite = new Date(hoje.setDate(hoje.getDate() - 3)).toLocaleDateString('pt-BR');
+                mostrarMensagem(`Não é permitido registrar atividades com mais de 3 dias de retroatividade. A data mais antiga permitida é ${dataLimite}.`, 'danger');
+                dataModal.hide();
+                return; 
+            }
+
+            const dataFormatada = formatarDataParaInput(dataDetectada.data);
+            dataInput.value = dataFormatada;
+            dataAlteradaManualInput.value = 'true';
+            
+            
+            dataInput.style.backgroundColor = '#e8f5e8';
+            dataInput.style.borderColor = '#28a745';
+            
+            
+            const mensagem = `Data alterada para: ${dataDetectada.texto}`;
+            mostrarMensagem(mensagem, 'success');
+        }
+        dataModal.hide();
+    });
+
+    
+    function mostrarMensagem(texto, tipo) {
+        const messageContent = document.getElementById('messageContent');
+        messageContent.innerHTML = `<div class="alert alert-${tipo}">${texto}</div>`;
+        const messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
+        messageModal.show();
+        
+        
+        setTimeout(() => {
+            messageModal.hide();
+        }, 3000);
+    }
+
+    
+    const dropArea = document.getElementById('drop-area');
+    const fileInput = document.getElementById('foto');
+    const previewImg = document.getElementById('preview');
+
+    dropArea.addEventListener('click', () => fileInput.click());
+
+    dropArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropArea.style.borderColor = '#0056b3';
+    });
+
+    dropArea.addEventListener('dragleave', () => {
+        dropArea.style.borderColor = '#007bff';
+    });
+
+    dropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileInput.files = e.dataTransfer.files;
+        displayImage(fileInput.files[0]);
+    });
+
+    fileInput.addEventListener('change', () => {
+        displayImage(fileInput.files[0]);
+    });
+
+    function displayImage(file) {
+        const reader = new FileReader();
+        reader.onload = function () {
+            previewImg.src = reader.result;
+            previewImg.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    
+    const equipamentoSelect = document.getElementById('equipamento');
+    const comentarioModal = new bootstrap.Modal(document.getElementById('comentarioModal'));
+
+    
+    equipamentoSelect.addEventListener('change', () => {
+        if (equipamentoSelect.value === 'Interno' || equipamentoSelect.value === 'Outros') {
+            comentarioModal.show();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,1477 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciamento de Ferramentas{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
+<style>
+    .map-container {
+        position: relative;
+        width: 100%;
+        max-width: 1400px;
+        margin: 2rem auto;
+        background: var(--card-bg);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        padding: 1rem;
+    }
+
+    .map-image {
+        width: 100%;
+        height: auto;
+        border-radius: var(--border-radius);
+    }
+
+    .hotspot {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        background-color: rgba(0, 0, 0, 0.3);
+        border: 2px solid var(--primary-color);
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        font-weight: bold;
+        transition: all var(--transition-default);
+    }
+
+    .hotspot:hover {
+        background-color: var(--primary-color);
+        transform: scale(1.1);
+    }
+
+    .tool-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+
+    .status-cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    @media (max-width: 992px) {
+        .status-cards {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="background-image-tampas"></div>
+<!-- Navigation -->
+<nav class="sub-nav">
+    <div class="container d-flex justify-content-center gap-3">
+        <a href="#" class="nav-link" onclick="abrirModalCadastro()">
+            <i class="fas fa-plus"></i> Cadastrar Ferramenta
+        </a>
+    </div>
+</nav>
+
+<div class="relatorio-container production-container">
+    <!-- Mapa com Hotspots -->
+    <div class="map-container">
+        <img src="{{ url_for('static', filename='img/Captura de tela 2024-12-08 152907.png') }}" alt="Mapa" class="map-image">
+        <div id="hotspot-container"></div>
+    </div>
+
+    <!-- Status Cards -->
+    <div class="status-cards">
+        <!-- Ferramentas Disponíveis -->
+        <div class="app-card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Ferramentas Disponíveis</h5>
+            </div>
+            <div class="card-body" id="ferramentas-disponiveis">
+                <div class="accordion" id="accordionDisponiveis"></div>
+            </div>
+        </div>
+
+        <!-- Em Produção -->
+        <div class="app-card">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">Em Produção</h5>
+            </div>
+            <div class="card-body" id="ferramentas-producao">
+                <div class="accordion" id="accordionProducao"></div>
+            </div>
+        </div>
+
+        <!-- Em Manutenção -->
+        <div class="app-card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">Em Manutenção</h5>
+            </div>
+            <div class="card-body" id="ferramentas-manutencao">
+                <div class="accordion" id="accordionManutencao"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Histórico Section -->
+    <div class="mt-4">
+        <div class="section-header">
+            <h3 class="section-title">Últimas Trocas de Ferramentas</h3>
+            <p class="text-muted">Histórico das 6 últimas alterações realizadas</p>
+        </div>
+        <div class="row g-3 px-4" id="historico-cards">
+            <!-- Será preenchido dinamicamente com os últimos 6 registros -->
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Posições -->
+<div class="modal fade" id="posicoesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Selecione a Posição da Ferramenta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="posicoes-grid">
+                    <!-- Grid de posições será preenchido dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Troca -->
+<div class="modal fade" id="trocaFerramentaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Trocar Ferramenta - Posição <span id="posicaoAtual"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="current-tool-info mb-4">
+                    <h6>Ferramenta Atual:</h6>
+                    <div id="currentToolDetails" class="p-3 bg-light rounded"></div>
+                </div>
+                <form id="trocaFerramentaForm">
+                    <div class="mb-3">
+                        <label class="form-label">Código da Ferramenta:</label>
+                        <div class="tool-grid" id="ferramentasDisponiveis"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ferramenteiro:</label>
+                        <input type="text" class="form-control" id="operador" readonly required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Strokes:</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="vidaUtil" 
+                               min="0" 
+                               step="10"
+                               placeholder="Descreva quantos strokes ela produziu." 
+                               required>
+                        <div class="btn-group mt-2" role="group">
+                            <button type="button" class="btn btn-danger btn-sm" data-step="-10000">-10000</button>
+                            <button type="button" class="btn btn-danger btn-sm" data-step="-1000">-1000</button>
+                            <button type="button" class="btn btn-danger btn-sm" data-step="-100">-100</button>
+                            <button type="button" class="btn btn-danger btn-sm" data-step="-10">-10</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-step="10">+10</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-step="100">+100</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-step="1000">+1000</button>
+                            <button type="button" class="btn btn-secondary btn-sm" data-step="10000">+10000</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observações:</label>
+                        <textarea class="form-control" id="observacoes" placeholder="Escreva o porque foi realizado a troca dessa ferramenta."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarTroca">Confirmar Troca</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalhes da ferramenta -->
+<div class="modal fade" id="modal-detalhes-ferramenta" tabindex="-1" aria-labelledby="modalLabelDetalhesFerramenta" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabelDetalhesFerramenta">Detalhes da Ferramenta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="detalhes-ferramenta"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Cadastro de Ferramenta -->
+<div class="modal fade" id="cadastroFerramentaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Cadastro de Ferramenta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="ferramentaForm">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Ferramenta:</label>
+                        <select class="form-control" id="tipo" required onchange="atualizarPrefixo()">
+                            <option value="">Selecione o tipo</option>
+                            <option value="DCP">DIE CENTER PISTON</option>
+                            <option value="BDP">BLANK-DRAW PUNCH</option>
+                            <option value="CTE">CUT EDGE</option>
+                            <option value="DCA">DIE CENTER ASSEMBLY</option>
+                            <option value="DCR">DIE CORE RING</option>
+                            <option value="INP">INNER PRESSURE</option>
+                            <option value="LWP">LOWER PISTON</option>
+                            <option value="LWR">LOWER RETAINER</option>
+                            <option value="PNP">PANEL PUNCH</option>
+                            <option value="PPP">PANEL PUNCH PISTON</option>
+                            <option value="UPP">UPPER PISTON</option>
+                            <option value="UPR">UPPER RETAINER</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Código da Ferramenta:</label>
+                        <div class="input-group">
+                            <span class="input-group-text" id="prefixoCodigo"></span>
+                            <input type="text" class="form-control" id="codigoSequencial" maxlength="4" pattern="\d{4}" placeholder="0000" required>
+                        </div>
+                        <small class="form-text text-muted">Digite apenas os 4 números após o prefixo</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarFerramenta()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Manutenção -->
+<div class="modal fade" id="manutencaoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Manutenção de Ferramenta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Adicionando seção de informações da ferramenta -->
+                <div class="ferramenta-info mb-4 p-3 bg-light rounded">
+                    <h6 class="border-bottom pb-2 mb-3">Informações da Ferramenta</h6>
+                    <div id="ferramenta-detalhes">
+                        <!-- Será preenchido dinamicamente -->
+                    </div>
+                </div>
+
+                <form id="manutencaoForm">
+                    <input type="hidden" id="ferramenta_id_manutencao">
+                    <input type="hidden" id="manutencao_tipo" value="iniciar">
+                    
+                    <div id="campos-concluir-manutencao">
+                        <div class="mb-3">
+                            <label for="descricao_manutencao" class="form-label">Descrição do Serviço/Motivo:</label>
+                            <textarea class="form-control" id="descricao_manutencao" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="responsavel_manutencao" class="form-label">Responsável:</label>
+                            <input type="text" class="form-control" id="responsavel_manutencao" value="{{ current_user.nome }}" readonly required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="status_final" class="form-label">Status Final:</label>
+                            <select class="form-control" id="status_final" required>
+                                <option value="disponivel">Disponível para uso</option>
+                                <option value="descartada">Descartada</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarManutencao">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Declare as variáveis globalmente
+    let currentHotspot = null;
+    let modalPosicoes = null;
+    let modalTroca = null;
+
+    // Inicialize os modais quando o documento carregar
+    document.addEventListener("DOMContentLoaded", () => {
+        modalPosicoes = new bootstrap.Modal(document.getElementById('posicoesModal'));
+        modalTroca = new bootstrap.Modal(document.getElementById('trocaFerramentaModal'));
+    });
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const hotspotContainer = document.getElementById('hotspot-container');
+        const historicoCards = document.getElementById('historico-cards');
+
+        // Função para carregar ferramentas do banco de dados
+        async function carregarFerramentas() {
+            const container = document.getElementById('ferramentasDisponiveis');
+            if (!container) {
+                console.error('Container de ferramentas não encontrado');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/ferramentas');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const ferramentas = await response.json();
+                
+                container.innerHTML = ferramentas.map(f => `
+                    <div class="ferramenta-item animate__animated animate__fadeIn" data-id="${f.id}">
+                        <div class="tool-card">
+                            <span class="status-badge status-${f.status}">${f.status}</span>
+                            <p class="text-muted mb-2">Código: ${f.codigo}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">Última atualização: ${f.ultima_atualizacao || 'N/A'}</small>
+                                <button class="btn btn-sm btn-outline-primary select-tool">Selecionar</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Adicionar eventos de seleção
+                document.querySelectorAll('.select-tool').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const item = this.closest('.ferramenta-item');
+                        document.querySelectorAll('.ferramenta-item').forEach(el => 
+                            el.classList.remove('selected'));
+                        item.classList.add('selected');
+                    });
+                });
+            } catch (error) {
+                console.error('Erro ao carregar ferramentas:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        Erro ao carregar ferramentas: ${error.message}
+                    </div>`;
+            }
+        }
+
+        // Função para abrir modal de posições
+        function abrirModalPosicoes(hotspot) {
+            const grid = document.querySelector('.posicoes-grid');
+            currentHotspot = hotspot.info.posicao;
+            
+            const posicoes = [
+                'DIE CENTER PISTON', 'BLANK-DRAW PUNCH', 'CUT EDGE',
+                'DIE CENTER ASSEMBLY', 'DIE CORE RING', 'INNER PRESSURE',
+                'LOWER PISTON', 'LOWER RETAINER', 'PANEL PUNCH',
+                'PANEL PUNCH PISTON', 'UPPER PISTON', 'UPPER RETAINER'
+            ];
+            
+            grid.innerHTML = posicoes.map(pos => `
+                <div class="posicao-item animate__animated animate__fadeIn" data-tipo="${pos}">
+                    <div class="position-card">
+                        <h6>${pos}</h6>
+                        <small class="text-muted">Clique para selecionar</small>
+                    </div>
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.posicao-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const tipoSelecionado = item.dataset.tipo;
+                    modalPosicoes.hide();
+                    setTimeout(() => {
+                        abrirModalTroca(currentHotspot, tipoSelecionado);
+                    }, 500);
+                });
+            });
+
+            modalPosicoes.show();
+        }
+
+        // Adicione esta função para mapear posição -> tipo
+        function obterTipoFerramenta(posicao) {
+            const mapeamentoPosicoes = {
+                1: 'DIE CENTER PISTON',    // DCP
+                 2: 'BLANK-DRAW PUNCH',     // BDP
+                3: 'CUT EDGE',             // CTE
+                4: 'DIE CENTER ASSEMBLY',  // DCA
+                5: 'DIE CORE RING',       // DCR
+                6: 'INNER PRESSURE',      // INP
+                7: 'LOWER PISTON',        // LWP
+                8: 'LOWER RETAINER',      // LWR
+                9: 'PANEL PUNCH',         // PNP
+                10: 'PANEL PUNCH PISTON', // PPP
+                11: 'UPPER PISTON',       // UPP
+                12: 'UPPER RETAINER',     // UPR
+            };
+            return mapeamentoPosicoes[posicao] || 'DESCONHECIDO';
+        }
+
+        // Função para obter prefixo do tipo
+        function obterPrefixoTipo(tipoCompleto) {
+            const mapeamentoPrefixos = {
+                'DIE CENTER PISTON': 'DCP',
+                'BLANK-DRAW PUNCH': 'BDP',
+                'CUT EDGE': 'CTE',
+                'DIE CENTER ASSEMBLY': 'DCA',
+                'DIE CORE RING': 'DCR',
+                'INNER PRESSURE': 'INP',
+                'LOWER PISTON': 'LWP',
+                'LOWER RETAINER': 'LWR',
+                'PANEL PUNCH': 'PNP',
+                'PANEL PUNCH PISTON': 'PPP',
+                'UPPER PISTON': 'UPP',
+                'UPPER RETAINER': 'UPR'
+            };
+            return mapeamentoPrefixos[tipoCompleto];
+        }
+
+        // Atualize a função abrirModalTroca
+        async function abrirModalTroca(posicao, tipoSelecionado) {
+            try {
+                // Busca informações da ferramenta atual na posição
+                const response = await fetch(`/api/ferramentas/posicao/${posicao}?tipo=${encodeURIComponent(tipoSelecionado)}`);
+                const data = await response.json();
+                
+                // Define o texto do título do modal
+                let tituloModal = `Posição ${posicao} - ${tipoSelecionado}`;
+                document.getElementById('posicaoAtual').textContent = tituloModal;
+
+                // Pré-preenche o nome do operador com o usuário atual
+                document.getElementById('operador').value = "{{ current_user.nome }}";
+                
+                // Atualiza as informações da ferramenta atual
+                if (data.codigo) { // Mudado de response.ok para data.codigo
+                    document.getElementById('currentToolDetails').innerHTML = `
+                        <div class="current-tool-card p-3">
+                            <h6 class="border-bottom pb-2">Ferramenta Atual na Posição</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Código:</strong> ${data.codigo}</p>
+                                    <p><strong>Nome do Operador:</strong> ${data.operador}</p>
+                                    <p><strong>Tipo:</strong> ${data.tipo}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Status:</strong> <span class="badge bg-warning">Em Uso</span></p>
+                                    <p><strong>Data da Troca:</strong> ${data.data_ultima_troca || 'Não registrada'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('currentToolDetails').innerHTML = `
+                        <div class="alert alert-info">
+                            Nenhuma ferramenta ${tipoSelecionado} instalada nessa posição
+                        </div>
+                    `;
+                }
+
+                // Carrega apenas as ferramentas disponíveis do tipo selecionado
+                await carregarFerramentasDisponiveis(tipoSelecionado);
+                modalTroca.show();
+            } catch (error) {
+                console.error('Erro ao abrir modal de troca:', error);
+                alert('Erro ao carregar informações da posição');
+            }
+        }
+
+        // Substitua a função carregarFerramentasDisponiveis por esta:
+        async function carregarFerramentasDisponiveis(tipoSelecionado) {
+            const container = document.getElementById('ferramentasDisponiveis');
+            try {
+                console.log(`Carregando ferramentas do tipo: ${tipoSelecionado}`); // Debug
+                
+                // Busca ferramentas disponíveis do tipo específico
+                const response = await fetch(`/api/ferramentas/disponiveis/${encodeURIComponent(tipoSelecionado)}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const ferramentas = await response.json();
+                
+                console.log(`Ferramentas recebidas: `, ferramentas); // Debug
+                
+                if (ferramentas.length === 0) {
+                    container.innerHTML = `
+                        <div class="alert alert-warning">
+                            Não há ferramentas disponíveis do tipo ${tipoSelecionado}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = ferramentas.map(f => `
+                    <div class="ferramenta-item animate__animated animate__fadeIn" data-id="${f.id}">
+                        <div class="tool-card">
+                            <p class="mb-2">Código: ${f.codigo}</p>
+                            <p class="mb-2">Tipo: ${f.tipo}</p>
+                            <button class="btn btn-primary btn-sm select-tool w-100">
+                                Selecionar para Troca
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Adiciona eventos aos botões
+                document.querySelectorAll('.select-tool').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const item = this.closest('.ferramenta-item');
+                        document.querySelectorAll('.ferramenta-item').forEach(el => 
+                            el.classList.remove('selected'));
+                        item.classList.add('selected');
+                    });
+                });
+            } catch (error) {
+                console.error('Erro ao carregar ferramentas:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger">
+                        Erro ao carregar ferramentas disponíveis: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Função atualizada para carregar histórico
+        async function carregarHistorico() {
+            try {
+                const response = await fetch('/api/historico/all?limit=6'); // Adiciona limite de 6 registros
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                const historicoCards = document.getElementById('historico-cards');
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Erro ao carregar histórico');
+                }
+
+                if (!data.items || !data.items.length) {
+                    historicoCards.innerHTML = `
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                Nenhum histórico de troca encontrado.
+                            </div>
+                        </div>`;
+                    return;
+                }
+                
+                // Limita a 6 itens caso a API retorne mais
+                const ultimos6 = data.items.slice(0, 6);
+                
+                historicoCards.innerHTML = ultimos6.map(troca => `
+                    <div class="col-lg-4 col-md-6 animate__animated animate__fadeInUp">
+                        <div class="historico-card h-100">
+                            <div class="historico-header">
+                                <div class="position-number">${troca.posicao}</div>
+                                <div class="header-content">
+                                    <h5 class="tool-code">${troca.codigo}</h5>
+                                    <div class="tool-meta">
+                                        <span class="tool-date">
+                                            <i class="fas fa-clock-rotate-left"></i>
+                                            ${formatDate(troca.data)}
+                                        </span>
+                                        <span class="badge ${getLifeStatusBadge(troca.producao_atual, troca.vida_util)}">
+                                            ${formatNumber(troca.vida_util)} strokes
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="historico-body">
+                                <div class="operator-info">
+                                    <div class="operator-badge">
+                                        <i class="fas fa-user-gear"></i>
+                                        <span class="operator-name">${troca.operador}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="production-status">
+                                    <div class="status-info">
+                                        <span class="status-label">Produção</span>
+                                        <span class="status-value">
+                                            ${formatNumber(troca.producao_atual)} / ${formatNumber(troca.vida_util)}
+                                        </span>
+                                    </div>
+                                    <div class="progress">
+                                        <div class="progress-bar ${getProgressBarClass(troca.producao_atual, troca.vida_util)}" 
+                                             role="progressbar" 
+                                             style="width: ${(troca.producao_atual / troca.vida_util) * 100}%">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error("Erro ao carregar histórico:", error);
+                document.getElementById('historico-cards').innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-danger">
+                            Erro ao carregar histórico: ${error.message}
+                        </div>
+                    </div>`;
+            }
+        }
+
+                    // Carregar hotspots
+                    async function carregarHotspots() {
+        try {
+            const response = await fetch('/api/hotspots');
+            const hotspots = await response.json();
+            const hotspotContainer = document.getElementById('hotspot-container');
+
+            hotspots.forEach(hotspot => {
+                const hotspotElement = document.createElement('div');
+                hotspotElement.className = 'hotspot animate__animated animate__fadeIn';
+                hotspotElement.style.top = hotspot.top;
+                hotspotElement.style.left = hotspot.left;
+                hotspotElement.textContent = hotspot.info.posicao;
+                
+                hotspotElement.addEventListener('click', () => {
+                    abrirModalPosicoes(hotspot);
+                });
+
+                hotspotContainer.appendChild(hotspotElement);
+            });
+        } catch (error) {
+            console.error("Erro ao carregar hotspots:", error);
+        }
+    }
+
+        // Inicializar
+        await carregarHotspots();
+        await carregarHistorico();
+
+        // Evento para confirmar troca
+        document.getElementById('confirmarTroca').addEventListener('click', async () => {
+            const ferramentaSelecionada = document.querySelector('.ferramenta-item.selected');
+            if (!ferramentaSelecionada || !currentHotspot) {
+                alert('Selecione uma ferramenta!');
+                return;
+            }
+
+            const dados = {
+                posicao: currentHotspot, // Aqui usamos diretamente o número da posição
+                ferramenta_nova_id: ferramentaSelecionada.dataset.id,
+                operador: document.getElementById('operador').value,
+                vida_util: document.getElementById('vidaUtil').value,
+                observacoes: document.getElementById('observacoes').value
+            };
+
+            try {
+                await realizarTrocaFerramenta(dados);
+            } catch (error) {
+                console.error('Erro na troca:', error);
+            }
+        });
+    });
+
+    const modalCadastro = new bootstrap.Modal(document.getElementById('cadastroFerramentaModal'));
+    let atualizando = false;
+
+    function abrirModalCadastro() {
+        document.getElementById('ferramentaForm').reset();
+        atualizando = false;
+        modalCadastro.show();
+    }
+
+    async function buscarFerramenta() {
+        const codigo = document.getElementById('codigo').value;
+        try {
+            const response = await fetch(`/api/ferramentas/buscar/${codigo}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                if (confirm('Ferramenta encontrada! Deseja atualizar os dados?')) {
+                    document.getElementById('nome').value = data.nome;
+                    document.getElementById('tipo').value = data.tipo;
+                    document.getElementById('status').value = data.status;
+                    atualizando = true;
+                }
+            } else {
+                atualizando = false;
+            }
+        } catch (error) {
+            console.error('Erro ao buscar ferramenta:', error);
+            alert('Erro ao buscar ferramenta');
+        }
+    }
+
+    async function salvarFerramenta() {
+        const tipoElement = document.getElementById('tipo');
+        const codigoSequencialElement = document.getElementById('codigoSequencial');
+        const nomeElement = document.getElementById('nome');
+
+        // Verificar se os elementos existem antes de acessar suas propriedades
+        if (!tipoElement || !codigoSequencialElement) {
+            console.error('Elementos do formulário não encontrados');
+            alert('Erro: Elementos do formulário não encontrados');
+            return;
+        }
+
+        // Validar se um tipo foi selecionado
+        if (!tipoElement.value) {
+            alert('Por favor, selecione um tipo de ferramenta antes de salvar.');
+            return;
+        }
+
+        let codigoCompleto;
+
+        // Se não houver código sequencial, gera um aleatório
+        if (!codigoSequencialElement.value) {
+            const randomNum = Math.floor(Math.random() * 9000) + 1000; // Gera número entre 1000-9999
+            codigoCompleto = `${tipoElement.value}-${randomNum}`;
+        } else {
+            // Garante que o código sequencial tenha 4 dígitos
+            const codigo = codigoSequencialElement.value.padStart(4, '0');
+            codigoCompleto = `${tipoElement.value}-${codigo}`;
+        }
+
+        try {
+            // Primeiro, verifica se já existe uma ferramenta com este código
+            const checkResponse = await fetch(`/api/ferramentas/buscar/${codigoCompleto}`);
+            const checkResult = await checkResponse.json();
+
+            if (checkResponse.ok && checkResult.id) {
+                // Verifica o status da ferramenta existente
+                if (checkResult.status === 'em_uso') {
+                    alert('Não é possível sobrescrever uma ferramenta que está em produção!');
+                    return;
+                }
+
+                // Para outros status (disponível ou manutenção), pede confirmação
+                const confirmText =
+                    `Já existe uma ferramenta com o código ${codigoCompleto}:\n\n` +
+                    `Nome: ${checkResult.nome}\n` +
+                    `Status: ${checkResult.status}\n\n` +
+                    `Deseja sobrescrever esta ferramenta?`;
+
+                if (!confirm(confirmText)) {
+                    return;
+                }
+            }
+
+            // Procede com o salvamento
+            const formData = {
+                codigo: codigoCompleto,
+                nome: nomeElement ? nomeElement.value : `Ferramenta ${codigoCompleto}`, // Nome padrão se não fornecido
+                tipo: tipoElement.options[tipoElement.selectedIndex].text,
+                status: 'disponivel'
+            };
+
+            const response = await fetch('/api/ferramentas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert(`Ferramenta ${formData.codigo} ${data.message}`);
+                modalCadastro.hide();
+                await carregarFerramentasPorStatus();
+            } else {
+                alert('Erro ao salvar: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            alert('Erro ao salvar ferramenta');
+        }
+    }
+
+    // Adicione esta função para atualizar o prefixo automaticamente
+    function atualizarPrefixo() {
+        const tipo = document.getElementById('tipo');
+        const prefixoSpan = document.getElementById('prefixoCodigo');
+        if (tipo.value) {
+            prefixoSpan.textContent = tipo.value + '-';
+        } else {
+            prefixoSpan.textContent = '';
+        }
+    }
+
+    // Função para criar card de ferramenta
+    function criarCardFerramenta(ferramenta) {
+        return `
+            <div class="ferramenta-card mb-2 p-2 border rounded animate__animated animate__fadeIn">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="mb-1">Código: ${ferramenta.codigo}</h6>
+                        <p class="mb-1"><small>Tipo: ${ferramenta.tipo}</small></p>
+                    </div>
+                    ${ferramenta.status === 'manutencao' ? 
+                        `<button class="btn btn-sm btn-warning" onclick="showManutencaoModal(${ferramenta.id})">
+                            Concluir Manutenção
+                         </button>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    async function carregarFerramentasPorStatus() {
+        try {
+            const response = await fetch('/api/ferramentas');
+            const ferramentas = await response.json();
+            
+            const disponiveis = ferramentas.filter(f => f.status === 'disponivel');
+            const producao = ferramentas.filter(f => f.status === 'em_uso');
+            const manutencao = ferramentas.filter(f => f.status === 'manutencao');
+            
+            // Função helper para agrupar ferramentas por tipo
+            function agruparPorTipo(ferramentas) {
+                return ferramentas.reduce((acc, ferramenta) => {
+                    const tipo = ferramenta.tipo || 'Sem Tipo';
+                    if (!acc[tipo]) {
+                        acc[tipo] = [];
+                    }
+                    acc[tipo].push(ferramenta);
+                    return acc;
+                }, {});
+            }
+
+            // Função para criar HTML do acordeão
+            function criarAccordionHtml(ferramentas, accordionId, status) {
+                const grupos = agruparPorTipo(ferramentas);
+                return Object.entries(grupos)
+                    .sort(([tipoA], [tipoB]) => tipoA.localeCompare(tipoB))
+                    .map(([tipo, items]) => `
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#collapse-${status}-${tipo.replace(/\s+/g, '')}">
+                                    ${tipo} (${items.length})
+                                </button>
+                            </h2>
+                            <div id="collapse-${status}-${tipo.replace(/\s+/g, '')}" 
+                                 class="accordion-collapse collapse" 
+                                 data-bs-parent="#${accordionId}">
+                                <div class="accordion-body">
+                                    ${items.map(f => `
+                                        <div class="ferramenta-card mb-2 p-2 border rounded">
+                                            <h6 class="mb-0">Código: ${f.codigo}</h6>
+                                            ${f.status === 'manutencao' ? 
+                                                `<button class="btn btn-sm btn-warning mt-2" 
+                                                         onclick="showManutencaoModal(${f.id})">
+                                                    Concluir Manutenção
+                                                 </button>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+            }
+
+            // Renderiza cada seção
+            document.getElementById('ferramentas-disponiveis').innerHTML = 
+                disponiveis.length ? 
+                    `<div class="accordion" id="accordionDisponiveis">
+                        ${criarAccordionHtml(disponiveis, 'accordionDisponiveis', 'disp')}
+                     </div>` : 
+                    '<p>Nenhuma ferramenta disponível</p>';
+
+            document.getElementById('ferramentas-manutencao').innerHTML = 
+                manutencao.length ? 
+                    `<div class="accordion" id="accordionManutencao">
+                        ${criarAccordionHtml(manutencao, 'accordionManutencao', 'manut')}
+                     </div>` : 
+                    '<p>Nenhuma ferramenta em manutenção</p>';
+
+            // Mantém o código existente para a seção de produção
+            const ferramentasPorPosicao = producao.reduce((acc, ferramenta) => {
+                const posicao = ferramenta.posicao || 'Sem Posição';
+                if (!acc[posicao]) {
+                    acc[posicao] = [];
+                }
+                acc[posicao].push(ferramenta);
+                return acc;
+            }, {});
+
+            // Renderiza ferramentas em produção agrupadas
+            const accordionHtml = Object.entries(ferramentasPorPosicao)
+                .sort(([posA], [posB]) => posA.localeCompare(posB))
+                .map(([posicao, ferramentas]) => `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse-pos-${posicao}">
+                                Posição ${posicao} (${ferramentas.length})
+                            </button>
+                        </h2>
+                        <div id="collapse-pos-${posicao}" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                ${ferramentas.map(f => `
+                                    <div class="ferramenta-card mb-2 p-2 border rounded">
+                                        <h6 class="mb-0">Código: ${f.codigo}</h6>
+                                        <p class="mb-1"><small>Tipo: ${f.tipo}</small></p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            document.getElementById('ferramentas-producao').innerHTML = 
+                producao.length ? `<div class="accordion" id="accordionProducao">${accordionHtml}</div>` 
+                               : '<p>Nenhuma ferramenta em produção</p>';
+
+        } catch (error) {
+            console.error('Erro ao carregar ferramentas:', error);
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        await carregarFerramentasPorStatus();
+        await carregarHotspots();
+        await carregarHistorico();
+    });
+
+    async function confirmarTroca(dados) {
+        try {
+            // Atualiza status da ferramenta antiga para manutenção
+            await fetch(`/api/ferramentas/${dados.ferramenta_antiga_id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'manutencao' })
+            });
+
+            // Atualiza status da nova ferramenta para em_uso
+            await fetch(`/api/ferramentas/${dados.ferramenta_nova_id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'em_uso' })
+            });
+
+            await carregarFerramentasPorStatus();
+        } catch (error) {
+            console.error('Erro na troca de ferramentas:', error);
+            throw error;
+        }
+    }
+
+    // Substitua a função realizarTrocaFerramenta existente por esta
+    async function realizarTrocaFerramenta(dados) {
+        const btnConfirmar = document.getElementById('confirmarTroca');
+        if (!btnConfirmar || btnConfirmar.disabled) return; // Evita múltiplas chamadas
+
+        try {
+            btnConfirmar.disabled = true;
+            btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processando...';
+
+            const response = await fetch('/api/troca-ferramenta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Erro ao registrar troca');
+            }
+
+            if (result.duplicate) {
+                console.log('Troca já registrada recentemente, ignorando...');
+                return;
+            }
+
+            await carregarFerramentasPorStatus();
+            modalTroca.hide();
+            alert(result.message);
+            await carregarHistorico();
+
+        } catch (error) {
+            console.error('Erro:', error);
+            alert(error.message || 'Erro ao realizar a troca');
+        } finally {
+            setTimeout(() => {
+                if (btnConfirmar) {
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.innerHTML = 'Confirmar Troca';
+                }
+            }, 2000);
+        }
+    }
+
+    // Substitua o event listener do botão confirmarTroca
+    document.addEventListener("DOMContentLoaded", async () => {
+        // ...existing code...
+
+        const confirmarTrocaBtn = document.getElementById('confirmarTroca');
+        if (confirmarTrocaBtn) {
+            // Remove event listeners anteriores
+            const newBtn = confirmarTrocaBtn.cloneNode(true);
+            confirmarTrocaBtn.parentNode.replaceChild(newBtn, confirmarTrocaBtn);
+            
+            // Adiciona um único event listener com debounce
+            let timeoutId = null;
+            newBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+                
+                timeoutId = setTimeout(async () => {
+                    if (newBtn.disabled) return;
+                    
+                    const ferramentaSelecionada = document.querySelector('.ferramenta-item.selected');
+                    if (!ferramentaSelecionada) {
+                        alert('Selecione uma ferramenta!');
+                        return;
+                    }
+
+                    if (!currentHotspot) {
+                        alert('Posição inválida!');
+                        return;
+                    }
+
+                    const operador = document.getElementById('operador').value;
+                    const vidaUtil = document.getElementById('vidaUtil').value;
+
+                    if (!operador || !vidaUtil) {
+                        alert('Preencha todos os campos obrigatórios!');
+                        return;
+                    }
+
+                    const dados = {
+                        posicao: currentHotspot,
+                        ferramenta_nova_id: ferramentaSelecionada.dataset.id,
+                        operador: operador,
+                        vida_util: parseInt(vidaUtil),
+                        observacoes: document.getElementById('observacoes').value || ''
+                    };
+
+                    await realizarTrocaFerramenta(dados);
+                }, 300); // Debounce de 300ms
+            });
+        }
+    });
+
+    // Mova a função carregarHistorico para o escopo global
+    async function carregarHistorico() {
+        try {
+            const response = await fetch('/api/historico/all');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const historico = await response.json();
+            const historicoCards = document.getElementById('historico-cards');
+            
+            if (historico.length === 0) {
+                historicoCards.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            Nenhum histórico de troca encontrado.
+                        </div>
+                    </div>`;
+                return;
+            }
+            
+            historicoCards.innerHTML = historico.map(troca => `
+                <div class="col-md-4 animate__animated animate__fadeInUp">
+                    <div class="historico-card">
+                        <div class="card-header">
+                            <h5>Posição ${troca.posicao}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">${troca.ferramenta}</h6>
+                                <span class="badge bg-primary">${troca.vida_util}h</span>
+                            </div>
+                            <p class="mb-2"><i class="fas fa-user"></i> ${troca.operador}</p>
+                            <p class="mb-2"><i class="fas fa-calendar"></i> ${troca.data}</p>
+                            ${troca.vida_util ? `
+                                <div class="progress mt-2">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: ${(troca.producao_atual / troca.vida_util) * 100}%" 
+                                         aria-valuenow="${troca.producao_atual}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="${troca.vida_util}">
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error("Erro ao carregar histórico:", error);
+            document.getElementById('historico-cards').innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        Erro ao carregar histórico: ${error.message}
+                    </div>
+                </div>`;
+        }
+    }
+
+    // Mantenha as ferramentas disponíveis por tipo
+    const AVAILABLE_TOOL_TYPES = {
+        'DIE CENTER PISTON': 'DCP',
+        'BLANK-DRAW PUNCH': 'BDP',
+        'CUT EDGE': 'CTE',
+        'DIE CENTER ASSEMBLY': 'DCA',
+        'DIE CORE RING': 'DCR',
+        'INNER PRESSURE': 'INP',
+        'LOWER PISTON': 'LWP',
+        'LOWER RETAINER': 'LWR',
+        'PANEL PUNCH': 'PNP',
+        'PANEL PUNCH PISTON': 'PPP',
+        'UPPER PISTON': 'UPP',
+        'UPPER RETAINER': 'UPR'
+    };
+
+    // Atualiza a função abrirModalPosicoes para mostrar todas as opções
+    function abrirModalPosicoes(hotspot) {
+        const grid = document.querySelector('.posicoes-grid');
+        currentHotspot = hotspot.info.posicao;
+        
+        const posicoes = [
+            'DIE CENTER PISTON', 'BLANK-DRAW PUNCH', 'CUT EDGE',
+            'DIE CENTER ASSEMBLY', 'DIE CORE RING', 'INNER PRESSURE',
+            'LOWER PISTON', 'LOWER RETAINER', 'PANEL PUNCH',
+            'PANEL PUNCH PISTON', 'UPPER PISTON', 'UPPER RETAINER'
+        ];
+        
+        grid.innerHTML = posicoes.map(pos => `
+            <div class="posicao-item animate__animated animate__fadeIn" data-tipo="${pos}">
+                <div class="position-card">
+                    <h6>${pos}</h6>
+                    <small class="text-muted">Clique para selecionar</small>
+                </div>
+            </div>
+        `).join('');
+
+        document.querySelectorAll('.posicao-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const tipoSelecionado = item.dataset.tipo;
+                modalPosicoes.hide();
+                setTimeout(() => {
+                    abrirModalTroca(currentHotspot, tipoSelecionado);
+                }, 500);
+            });
+        });
+
+        modalPosicoes.show();
+    }
+
+    async function carregarHistorico() {
+        try {
+            const response = await fetch('/api/historico/all');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const historico = await response.json();
+            const historicoCards = document.getElementById('historico-cards');
+            
+            if (historico.length === 0) {
+                historicoCards.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            Nenhum histórico de troca encontrado.
+                        </div>
+                    </div>`;
+                return;
+            }
+            
+            historicoCards.innerHTML = historico.map(troca => `
+                <div class="col-md-4 mb-3">
+                    <div class="historico-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-0">Posição ${troca.posicao}</h5>
+                                <small class="text-muted">${troca.data}</small>
+                            </div>
+                            <span class="badge bg-primary">${troca.vida_util} strokes</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="tool-info mb-3">
+                                <h6 class="fw-bold mb-2">Código: ${troca.codigo}</h6>
+                            </div>
+                            <div class="operator-info mb-3">
+                                <h6 class="fw-bold mb-2">Operador:</h6>
+                                <p class="mb-1">${troca.operador}</p>
+                            </div>
+                            <div class="progress-info">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small>Produção Atual:</small>
+                                    <small>${troca.producao_atual} / ${troca.vida_util} strokes</small>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar ${getProgressBarClass(troca.producao_atual, troca.vida_util)}" 
+                                         role="progressbar" 
+                                         style="width: ${(troca.producao_atual / troca.vida_util) * 100}%" 
+                                         aria-valuenow="${troca.producao_atual}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="${troca.vida_util}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error("Erro ao carregar histórico:", error);
+            historicoCards.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        Erro ao carregar histórico: ${error.message}
+                    </div>
+                </div>`;
+        }
+    }
+
+    // Adicione estas funções helpers antes da função carregarHistorico
+    function getLifeStatusBadge(atual, total) {
+        const percent = (atual / total) * 100;
+        if (percent < 60) return 'badge bg-success';
+        if (percent < 85) return 'badge bg-warning';
+        return 'badge bg-danger';
+    }
+
+    function getProgressBarClass(atual, total) {
+        const percentual = (atual / total) * 100;
+        if (percentual < 60) return 'bg-success';
+        if (percentual < 85) return 'bg-warning';
+        return 'bg-danger';
+    }
+
+    function getStatusClass(atual, total) {
+        const percentual = (atual / total) * 100;
+        if (percentual < 60) return 'badge bg-success';
+        if (percentual < 85) return 'badge bg-warning';
+        return 'badge bg-danger';
+    }
+
+    function getProductionStatus(atual, total) {
+        const percentual = (atual / total) * 100;
+        if (percentual < 60) return 'Normal';
+        if (percentual < 85) return 'Atenção';
+        return 'Crítico';
+    }
+
+    function formatNumber(num) {
+        if (!num) return '0';
+        return num.toLocaleString('pt-BR');
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return 'Data não informada';
+        return new Date(dateString).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    // Adicione estas funções helpers
+    function getProductionStatus(atual, total) {
+        const percentual = (atual / total) * 100;
+        if (percentual < 60) return 'Normal';
+        if (percentual < 85) return 'Atenção';
+        return 'Crítico';
+    }
+
+    function getProductionStatusClass(atual, total) {
+        const percentual = (atual / total) * 100;
+        if (percentual < 60) return 'bg-success';
+        if (percentual < 85) return 'bg-warning';
+        return 'bg-danger';
+    }
+
+    function formatDate(dateString) {
+        return new Date(dateString).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const input = document.getElementById('vidaUtil');
+        
+        // Prevent negative numbers on input
+        input.addEventListener('input', function() {
+            if (this.value < 0) this.value = 0;
+        });
+
+        // Handle increment/decrement buttons
+        const buttons = document.querySelectorAll('[data-step]');
+        buttons.forEach(button => {
+            let intervalId = null;
+            let delay = 500; // Initial delay before rapid increment
+            
+            function increment() {
+                const step = parseInt(button.dataset.step);
+                let currentValue = parseInt(input.value) || 0;
+                let newValue = currentValue + step;
+                
+                // Ensure value never goes below 0
+                input.value = Math.max(0, newValue);
+            }
+
+            button.addEventListener('mousedown', function() {
+                increment();
+                intervalId = setTimeout(function() {
+                    intervalId = setInterval(increment, 50); // Rapid increment after delay
+                }, delay);
+            });
+
+            button.addEventListener('mouseup', function() {
+                if (intervalId) {
+                    clearTimeout(intervalId);
+                    clearInterval(intervalId);
+                }
+            });
+
+            button.addEventListener('mouseleave', function() {
+                if (intervalId) {
+                    clearTimeout(intervalId);
+                    clearInterval(intervalId);
+                }
+            });
+
+            // Add touch events for mobile devices
+            button.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                increment();
+                intervalId = setTimeout(function() {
+                    intervalId = setInterval(increment, 50);
+                }, delay);
+            });
+
+            button.addEventListener('touchend', function() {
+                if (intervalId) {
+                    clearTimeout(intervalId);
+                    clearInterval(intervalId);
+                }
+            });
+        });
+    });
+
+    async function showManutencaoModal(ferramenta_id) {
+        const manutencaoModal = new bootstrap.Modal(document.getElementById('manutencaoModal'));
+        document.getElementById('ferramenta_id_manutencao').value = ferramenta_id;
+        
+        try {
+            // Busca informações da ferramenta
+            const response = await fetch(`/api/ferramentas/manutencao/${ferramenta_id}`);
+            const ferramenta = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(ferramenta.error || 'Erro ao carregar informações da ferramenta');
+            }
+
+            // Atualiza as informações da ferramenta no modal
+            document.getElementById('ferramenta-detalhes').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>Código:</strong> ${ferramenta.codigo}</p>
+                        <p class="mb-2"><strong>Tipo:</strong> ${ferramenta.tipo}</p>
+                        <p class="mb-2"><strong>Status:</strong> 
+                            <span class="badge bg-warning">${ferramenta.status}</span>
+                        </p>
+                    </div>
+                </div>
+            `;
+
+            // Limpa e configura os campos do formulário
+            document.getElementById('descricao_manutencao').value = '';
+            document.getElementById('responsavel_manutencao').value = "{{ current_user.nome }}";
+            document.getElementById('status_final').value = 'disponivel';
+
+            // Configura o botão de confirmação
+            const btnConfirmar = document.getElementById('confirmarManutencao');
+            btnConfirmar.onclick = async () => {
+                try {
+                    const descricao = document.getElementById('descricao_manutencao').value;
+                    const responsavel = document.getElementById('responsavel_manutencao').value;
+                    const status = document.getElementById('status_final').value;
+
+                    if (!descricao) {
+                        alert('Por favor, preencha a descrição da manutenção.');
+                        return;
+                    }
+
+                    btnConfirmar.disabled = true;
+                    btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processando...';
+
+                    const updateResponse = await fetch(`/api/manutencao/${ferramenta_id}/concluir`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            status: status,
+                            descricao: descricao,
+                            responsavel: responsavel
+                        })
+                    });
+
+                    const result = await updateResponse.json();
+                    
+                    if (!updateResponse.ok) {
+                        throw new Error(result.error || 'Erro ao concluir manutenção');
+                    }
+
+                    await carregarFerramentasPorStatus();
+                    manutencaoModal.hide();
+                    alert('Manutenção concluída com sucesso!');
+
+                } catch (error) {
+                    console.error('Erro:', error);
+                    alert('Erro ao concluir manutenção: ' + error.message);
+                } finally {
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.innerHTML = 'Confirmar';
+                }
+            };
+
+            manutencaoModal.show();
+
+        } catch (error) {
+            console.error('Erro:', error);
+            alert('Erro ao carregar informações da ferramenta: ' + error.message);
+        }
+    }
+
+</script>
+{% endblock %}
+</html>
