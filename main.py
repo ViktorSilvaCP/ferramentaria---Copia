@@ -989,6 +989,48 @@ def criar_ferramenta():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/ferramentas/importar', methods=['POST'])
+@login_required
+def importar_ferramentas_api():
+    """
+    Endpoint da API para iniciar a importação de ferramentas de arquivos.
+    """
+    try:
+        logging.info(f"Usuário {current_user.nome} iniciou a importação de ferramentas.")
+        
+        # 1. Consumir os dados dos arquivos
+        resumo_consumo = consumir_ferramentas(remover_apos_processar=True)
+        
+        if not resumo_consumo['dados'] and resumo_consumo['erros']:
+            # Se não há dados e há erros, a importação falhou
+            error_message = "; ".join(resumo_consumo['erros'])
+            logging.error(f"Falha na fase de consumo: {error_message}")
+            return jsonify({'success': False, 'message': f"Falha ao ler arquivos: {error_message}"}), 500
+
+        # 2. Importar para o banco de dados
+        adicionadas, atualizadas = importar_ferramentas_para_db(db, Ferramenta, resumo_consumo['dados'])
+
+        if adicionadas == 0 and atualizadas == 0:
+            # Pode ser que os arquivos estivessem vazios ou só continham ferramentas já sincronizadas
+            if not resumo_consumo['erros']:
+                msg = "Nenhuma nova ferramenta para adicionar ou atualizar."
+                logging.info(msg)
+                return jsonify({'success': True, 'message': msg})
+            else:
+                # Havia erros, mas talvez não fossem fatais
+                error_message = "; ".join(resumo_consumo['erros'])
+                return jsonify({'success': True, 'message': f"Processo concluído com avisos: {error_message}"})
+
+        # 3. Retornar sucesso
+        message = f"Importação concluída: {adicionadas} ferramentas adicionadas, {atualizadas} atualizadas."
+        logging.info(message)
+        return jsonify({'success': True, 'message': message})
+
+    except Exception as e:
+        logging.error(f"Erro inesperado na API de importação: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': f"Erro interno no servidor: {e}"}), 500
+
+
 @app.route('/api/get_filter_options', methods=['GET'])
 @login_required
 def get_filter_options():
