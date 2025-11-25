@@ -95,7 +95,7 @@
             background-color: #F9FAFB;
         }
 
-        tr:hover:not(.bg-gray-100) {
+        td:hover:not(.bg-gray-100) {
             background-color: #F3F4F6 !important;
             cursor: pointer;
         }
@@ -366,10 +366,8 @@
     <div class="overflow-x-auto shadow-lg rounded-lg">
         <table class="min-w-full bg-white border border-gray-200">
             <thead>
-            <tr class="bg-gray-100 text-white uppercase text-sm leading-normal">
+            <tr class="bg-blue-600 text-white uppercase text-sm leading-normal">
                 <th class="py-3 px-6 text-left rounded-tl-lg">Código</th>
-                <th class="py-3 px-6 text-left">Descrição</th>
-                <th class="py-3 px-6 text-left">Tipo</th>
                 <th class="py-3 px-6 text-left">Dim. Métrica</th>
                 <th class="py-3 px-6 text-left">Dim. Polegada</th>
                 <th class="py-3 px-6 text-left">Sufixo</th>
@@ -624,33 +622,29 @@ class GerenciadorFerramentas {
 
     // AJUSTADO: Apenas Filtro de Busca (MZ, ZC, MG) e Filtro de Tipo
     applyFilters(resetPage = false) {
-        const termoBusca = this.filtroBusca?.value.toLowerCase().trim();
+        const termoBuscaCompleto = this.filtroBusca?.value.toLowerCase().trim();
         const tipoFiltro = this.filtroTipo?.value.trim();
         
         this.ferramentasFiltradas = this.ferramentas.filter(f => {
             
-            // 1. FILTRO DE BUSCA: Procura o termo em Código, Descrição, Sufixo E Código Interno (status)
-            if (termoBusca) {
-                const statusInterno = f.status?.toLowerCase() || '';
-
-                const matchFound = (
-                    f.codigo?.toLowerCase().includes(termoBusca) || 
-                    f.descricao?.toLowerCase().includes(termoBusca) ||
-                    f.sufixo?.toLowerCase().includes(termoBusca) ||
-                    statusInterno.includes(termoBusca) // *** AQUI ESTÁ A CHAVE: Procura MZ/ZC/MG no campo de CÓDIGO INTERNO (Status) ***
-                );
-                
-                if (!matchFound) {
-                    return false;
-                }
-            }
-            
-            // 2. FILTRO POR TIPO
+            // 1. FILTRO POR TIPO (executado primeiro)
             if (tipoFiltro && f.tipo !== tipoFiltro) {
                 return false;
             }
 
-            return true;
+            // 2. FILTRO DE BUSCA COMBINADO (ID + Código Interno)
+            if (termoBuscaCompleto) {
+                // Separa os termos de busca por vírgula e remove espaços extras
+                const termos = termoBuscaCompleto.split(',').map(t => t.trim()).filter(t => t);
+
+                // Verifica se a ferramenta corresponde a TODOS os termos de busca (lógica AND)
+                return termos.every(termo => {
+                    const statusInterno = f.status?.toLowerCase() || '';
+                    return f.codigo?.toLowerCase().includes(termo) ||
+                           statusInterno.includes(termo);
+                });
+            }
+            return true; // Se não houver termo de busca, retorna verdadeiro
         });
         
         if (resetPage) {
@@ -679,7 +673,7 @@ class GerenciadorFerramentas {
         const dataToRender = this.ferramentasFiltradas;
 
         if (!dataToRender.length) {
-            this.tabelaCorpo.innerHTML = `<tr><td colspan="9" class="text-center py-6 text-gray-500 italic">Nenhuma ferramenta encontrada com os filtros atuais.</td></tr>`;
+            this.tabelaCorpo.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-gray-500 italic">Nenhuma ferramenta encontrada com os filtros atuais.</td></tr>`;
             return;
         }
 
@@ -704,8 +698,6 @@ class GerenciadorFerramentas {
 
             tr.innerHTML = `
                 <td class="py-4 px-6 font-semibold text-gray-800">${f.codigo || '-'}</td>
-                <td class="py-3 px-6 text-sm max-w-xs truncate" title="${f.descricao || '-'}">${f.descricao || '-'}</td>
-                <td class="py-3 px-6">${f.tipo || '-'}</td>
                 <td class="py-3 px-6">${dimensao_metrica_display}</td>
                 <td class="py-3 px-6">${dimensao_polegada_display}</td>
                 <td class="py-3 px-6">${f.sufixo || '-'}</td>
