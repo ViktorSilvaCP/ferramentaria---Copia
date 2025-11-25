@@ -33,10 +33,10 @@ import re
 from io import BytesIO
 import uuid
 from email.mime.image import MIMEImage
-# IMPORTAÇÕES DO PYTHON
 import time
 import threading
 from utils.ferramentas_importer import consumir_ferramentas, importar_ferramentas_para_db, CAMINHO_FONTE
+
 log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s')
 log_file = 'app.log'
 file_handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
@@ -110,13 +110,12 @@ class Ferramenta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     codigo = db.Column(db.String(50), unique=True, nullable=False)
     tipo = db.Column(db.String(50), nullable=False)
-    descricao = db.Column(db.String(200), nullable=True)
     status = db.Column(db.String(20), default='disponivel')  
     posicao = db.Column(db.Integer, nullable=True)  
-    ultima_atualizacao = db.Column(db.DateTime(timezone=True), default=get_current_datetime)  
     dimensao_metrica = db.Column(db.String(50), nullable=True)
     dimensao_polegada = db.Column(db.String(50), nullable=True)
     sufixo = db.Column(db.String(20), nullable=True)
+    ultima_atualizacao = db.Column(db.DateTime(timezone=True), default=get_current_datetime)
     
 
 class Faca(db.Model):
@@ -914,7 +913,6 @@ def get_ferramentas():
             'codigo': f.codigo,
             'tipo': f.tipo,
             'status': f.status,
-            'descricao': f.descricao,
             'dimensao_metrica': f.dimensao_metrica,
             'dimensao_polegada': f.dimensao_polegada,
             'sufixo': f.sufixo,
@@ -1031,8 +1029,9 @@ def importar_ferramentas_api():
         return jsonify({'success': False, 'message': f"Erro interno no servidor: {e}"}), 500
 
 
+
 @app.route('/api/get_filter_options', methods=['GET'])
-@login_required
+@login_required 
 def get_filter_options():
     conn = sqlite3.connect('relatorio_diario.db')
     c = conn.cursor()

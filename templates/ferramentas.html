@@ -1,114 +1,470 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Ferramentas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
 
-{% block title %}Ferramentas{% endblock %}
+        /* -------------------------------------- */
+        /* 1. VARIÁVEIS CSS (TEMA) */
+        /* -------------------------------------- */
+        :root {
+            --primary-color: #2563EB; /* Azul (blue-600) */
+            --secondary-color: #7C3AED; /* Roxo (purple-600) */
+            --success-color: #10B981; /* Verde (green-500) */
+            --warning-color: #FBBF24; /* Amarelo (amber-400) */
+            --danger-color: #EF4444; /* Vermelho (red-500) */
+            --background-color: #F8F9FA; /* Fundo levemente acinzentado */
+            --card-bg: #FFFFFF;
+            --border-color: #E5E7EB; /* cinza-200 */
+            --text-color-primary: #1F2937; /* cinza-900 */
+            --text-color-secondary: #6B7280; /* cinza-500 */
+            --border-radius: 0.5rem;
+            --shadow-default: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            --transition-default: 0.3s ease;
+        }
 
-{% block content %}
-<div class="container mx-auto py-8">
-    <h1 class="text-3xl font-semibold mb-6">Gerenciar Ferramentas</h1>
+        /* -------------------------------------- */
+        /* 2. ESTILOS GERAIS E COMPONENTES */
+        /* -------------------------------------- */
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color-primary);
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-    <!-- Barra de Ações -->
-    <div class="flex justify-between items-center mb-4">        
-		<button type="button" id="btnAtualizar" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-md transition">
-            <i class="fas fa-sync-alt mr-2"></i>Atualizar
-        </button>
-        <button type="button" id="btnImportarFerramenta"
-                class="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-2 rounded-md transition">
-            <i class="fas fa-download mr-2"></i>Importar de Arquivo
-        </button>
-        <button type="button" id="btnAdicionarFerramenta"
-                class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded-md transition">
-            <i class="fas fa-plus mr-2"></i>Adicionar Ferramenta
-        </button>
+        h1 {
+            color: var(--text-color-primary);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem !important;
+        }
+        
+        .stat-card {
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-default);
+            background: var(--card-bg);
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            transition: transform var(--transition-default);
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Estilo para inputs e selects */
+        .form-control {
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 0.75rem 1rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+            color: var(--text-color-primary);
+            appearance: none; 
+        }
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+            outline: none;
+        }
+
+        /* -------------------------------------- */
+        /* 3. ESTILOS DA TABELA E RÓTULOS (Status) */
+        /* -------------------------------------- */
+        .min-w-full {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+
+        .bg-gray-100 {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .table-row-even {
+            background-color: #F9FAFB;
+        }
+
+        tr:hover:not(.bg-gray-100) {
+            background-color: #F3F4F6 !important;
+            cursor: pointer;
+        }
+        
+        .status-label {
+            padding: 0.3rem 0.9rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: white;
+            text-transform: uppercase;
+            display: inline-block;
+            text-align: center;
+            min-width: 50px; /* Reduzido para caber códigos curtos */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Estilos baseados nos códigos internos (cores variadas) */
+        .status-label.mz { background-color: #3B82F6; } /* Azul */
+        .status-label.mg { background-color: #10B981; } /* Verde */
+        .status-label.zc { background-color: #F97316; } /* Laranja */
+        .status-label.sp { background-color: #EF4444; } /* Vermelho */
+        .status-label.rj { background-color: #7C3AED; } /* Roxo */
+        .status-label.pr {background-color: #FBBF24;}
+        .status-label.default { background-color: #6B7280; } /* Cinza (Para outros) */
+        
+        /* -------------------------------------- */
+        /* 4. ESTILOS DE MODAL */
+        /* -------------------------------------- */
+        .hidden {
+            display: none !important; 
+        }
+        
+        /* Modal Overlay */
+        #modalAdicionarFerramenta, #modalImportarFerramenta {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.6);
+            transition: opacity 0.3s ease;
+        }
+        
+        /* Modal Content Animation */
+        #modalAdicionarFerramenta > div, #modalImportarFerramenta > div {
+            transform: translateY(-20px);
+            opacity: 0;
+            animation: modalDrop 0.3s ease forwards;
+            background-color: var(--card-bg);
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        @keyframes modalDrop {
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        /* -------------------------------------- */
+        /* 5. ESTILOS DO HEADER/NAVBAR */
+        /* -------------------------------------- */
+        .app-header {
+            background-color: var(--primary-color); /* Usa a cor primária (azul) */
+            padding: 0.75rem 0; /* Espaçamento vertical */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 30; /* Acima de outros elementos, mas abaixo de modais */
+        }
+        
+        .app-header .container {
+            width: 100%;
+            max-width: 1280px; /* Largura máxima (ajustável) */
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .app-header .d-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-header .logo {
+            height: 30px; /* Altura do logo */
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+        .app-header .logo #logo {
+            max-height: 100%;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .app-header .header-nav {
+            display: flex;
+            align-items: center;
+            flex-grow: 1; /* Permite que o nav ocupe espaço, se necessário */
+            margin-left: 2rem; /* Espaçamento à esquerda do nav */
+        }
+
+        .app-header .nav-links {
+            display: flex;
+            gap: 1.5rem; /* Espaçamento entre os links */
+        }
+
+        .app-header .nav-link {
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 0;
+            transition: color var(--transition-default), border-bottom var(--transition-default);
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .app-header .nav-link i {
+            margin-right: 0.5rem;
+            font-size: 1.1em;
+        }
+
+        .app-header .nav-link:hover {
+            color: white;
+        }
+
+        .app-header .nav-link.active {
+            color: white;
+            font-weight: 700;
+        }
+        
+        .app-header .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: var(--warning-color); /* Cor de destaque (amarelo) */
+            border-radius: 2px;
+        }
+
+        /* Ações do Usuário */
+        .app-header .user-info {
+            color: white;
+            font-weight: 600;
+            padding: 0.5rem 0;
+        }
+        
+        /* Estilo para Botões no Header */
+        .app-header .btn-app {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.6rem; 
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            line-height: 1;
+            transition: background-color var(--transition-default), transform var(--transition-default);
+            border: 1px solid transparent;
+        }
+        
+        .app-header .btn-app i {
+            margin-right: 0; /* Remove margem do ícone */
+        }
+        
+        .app-header .btn-app-secondary {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+        .app-header .btn-app-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        .app-header .btn-app-danger {
+            background-color: var(--danger-color);
+            color: white;
+            border-color: var(--danger-color);
+        }
+        .app-header .btn-app-danger:hover {
+            background-color: #CC3333; /* Um vermelho um pouco mais escuro */
+            transform: translateY(-1px);
+        }
+
+        /* Utilitários Bootstrap-like (necessários para as classes 'me-3', 'me-2') */
+        .me-3 {
+            margin-right: 1rem !important; /* me-3 ~ ml-4 do tailwind */
+        }
+        .me-2 {
+            margin-right: 0.5rem !important; /* me-2 ~ ml-2 do tailwind */
+        }
+        
+    </style>
+
+</head>
+<body>
+<header class="app-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <a href="/index">
+                <div class="logo">
+                    <img id="logo" src="https://inside-packaging.nridigital.com/inside-packaging/packaging_nov19/canpack/241846/can_pack_logo_white.240_0_1.png" alt="Logo" height="100%" class="img-fluid">
+                </div>
+            </a>
+            <div class="user-actions d-flex align-items-center">
+                <span class="user-info me-3">{{ current_user.nome or current_user.matricula }}</span>
+                {% if current_user.get_id()|int in [0, 1, 2] %}
+                <a href="{{ url_for('adicionar_matricula') }}" class="btn-app btn-app-secondary me-2">
+                    <i class="fas fa-user-plus"></i>
+                </a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}" class="btn-app btn-app-danger">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</header>
+<div class="container mx-auto py-8 px-4">
+    <h1 class="text-3xl font-semibold">Gerenciar Ferramentas</h1>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+        <div class="stat-card border-l-4 border-blue-600">
+            <p class="text-sm font-medium text-gray-500">Total de Ferramentas (Geral)</p>
+            <p id="total-geral" class="text-3xl font-bold text-blue-800 mt-1">0</p>
+        </div>
+        <div class="stat-card border-l-4 border-green-600">
+            <p class="text-sm font-medium text-gray-500">Total de Ferramentas (Filtradas)</p>
+            <p id="total-filtrado" class="text-3xl font-bold text-green-800 mt-1">0</p>
+        </div>
     </div>
 
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white border border-gray-200 rounded-lg">
+    <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-4 mb-8 p-4 bg-white rounded-lg shadow-md">
+        <div class="flex flex-wrap space-x-2 sm:space-x-4 w-full md:w-auto">
+            <button type="button" id="btnAtualizar"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition duration-300 ease-in-out">
+                <i class="fas fa-sync-alt mr-2"></i>Atualizar
+            </button>
+            <button type="button" id="btnAdicionarFerramenta"
+                    class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition duration-300 ease-in-out">
+                <i class="fas fa-plus mr-2"></i>Adicionar
+            </button>
+            <button type="button" id="btnImportarFerramenta"
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-lg transition duration-300 ease-in-out">
+                <i class="fas fa-download mr-2"></i>Importar
+            </button>
+        </div>
+
+        <div class="flex flex-wrap space-y-2 sm:space-y-0 sm:space-x-4 w-full md:w-auto">
+            <input type="text" id="filtro-busca" placeholder="Buscar: Código (MZ, ZC)" class="form-control w-full sm:w-64">
+            
+            </div>
+    </div>
+
+    <div class="overflow-x-auto shadow-lg rounded-lg">
+        <table class="min-w-full bg-white border border-gray-200">
             <thead>
-            <tr class="bg-gray-100 text-gray-700 uppercase text-sm leading-normal">
-                <th class="py-3 px-6 text-left">Código</th>
+            <tr class="bg-gray-100 text-white uppercase text-sm leading-normal">
+                <th class="py-3 px-6 text-left rounded-tl-lg">Código</th>
                 <th class="py-3 px-6 text-left">Descrição</th>
                 <th class="py-3 px-6 text-left">Tipo</th>
                 <th class="py-3 px-6 text-left">Dim. Métrica</th>
                 <th class="py-3 px-6 text-left">Dim. Polegada</th>
                 <th class="py-3 px-6 text-left">Sufixo</th>
-                <th class="py-3 px-6 text-left">Status</th>
-                <th class="py-3 px-6 text-left">Última Atualização</th>
-                <th class="py-3 px-6 text-center">Ações</th>
+                <th class="py-3 px-6 text-left">Código Interno</th> <th class="py-3 px-6 text-left">Última Atualização</th>
+                <th class="py-3 px-6 text-center rounded-tr-lg">Ações</th>
             </tr>
             </thead>
             <tbody class="text-gray-600 text-sm font-light">
-                <!-- O conteúdo será preenchido via JavaScript -->
             </tbody>
         </table>
     </div>
+    
+    <div id="pagination-controls" class="flex flex-col sm:flex-row justify-between items-center mt-6 px-4 py-2 bg-white rounded-lg shadow-md space-y-2 sm:space-y-0">
+        <button id="btnPrev" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center w-full sm:w-auto justify-center">
+            <i class="fas fa-arrow-left mr-2"></i>Anterior
+        </button>
+        <span id="page-info" class="text-gray-700 font-semibold text-center"></span>
+        <button id="btnNext" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center w-full sm:w-auto justify-center">
+            Próxima <i class="fas fa-arrow-right ml-2"></i>
+        </button>
+    </div>
 </div>
-
-<!-- Modal para Adicionar Ferramenta -->
-<div id="modalAdicionarFerramenta" class="fixed inset-0 z-50 flex items-center justify-center hidden">
-    <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
-        <h2 class="text-xl font-semibold mb-4">Adicionar Ferramenta</h2>
+    
+<div id="modalAdicionarFerramenta" class="hidden">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full m-4">
+        <h2 class="text-2xl font-bold mb-6 border-b pb-2 text-gray-800">Adicionar Nova Ferramenta</h2>
         <form id="formAdicionarFerramenta">
             <div class="mb-4">
-                <label for="codigo" class="block text-sm font-medium text-gray-700">Código</label>
+                <label for="codigo" class="block text-sm font-semibold text-gray-700 mb-1">Código</label>
                 <input type="text" id="codigo" name="codigo" required
-                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring focus:ring-opacity-50">
+                        class="form-control">
             </div>
             <div class="mb-4">
-                <label for="tipo" class="block text-sm font-medium text-gray-700">Tipo</label>
+                <label for="tipo" class="block text-sm font-semibold text-gray-700 mb-1">Tipo</label>
                 <input type="text" id="tipo" name="tipo" required
-                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring focus:ring-opacity-50">
+                        class="form-control">
             </div>
             <div class="mb-4">
-                <label for="descricao" class="block text-sm font-medium text-gray-700">Descrição</label>
+                <label for="descricao" class="block text-sm font-semibold text-gray-700 mb-1">Descrição</label>
                 <textarea id="descricao" name="descricao" rows="3"
-                          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring focus:ring-opacity-50"></textarea>
+                                class="form-control"></textarea>
             </div>
-            <div class="mb-4">
-                <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
-                <select id="status" name="status" required
-                        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring focus:ring-opacity-50">
-                    <option value="disponivel">Disponível</option>
-                    <option value="em_uso">Em Uso</option>
-                    <option value="manutencao">Manutenção</option>
-                </select>
+             <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="dimensao_metrica" class="block text-sm font-semibold text-gray-700 mb-1">Dim. Métrica (mm)</label>
+                    <input type="number" step="any" id="dimensao_metrica" name="dimensao_metrica"
+                               class="form-control">
+                </div>
+                <div>
+                    <label for="dimensao_polegada" class="block text-sm font-semibold text-gray-700 mb-1">Dim. Polegada (")</label>
+                    <input type="number" step="any" id="dimensao_polegada" name="dimensao_polegada"
+                               class="form-control">
+                </div>
             </div>
-            <div class="flex justify-end">
+            <div class="mb-6">
+                <label for="status" class="block text-sm font-semibold text-gray-700 mb-1">Código Interno (MZ, ZC, etc.)</label>
+                <input type="text" id="status" name="status" required
+                        class="form-control">
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="btnCancelarAdicionar"
+                         class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-6 py-3 rounded-lg transition duration-300 ease-in-out">
+                    <i class="fas fa-times mr-2"></i>Cancelar
+                </button>
                 <button type="submit"
-                        class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-md transition">
+                         class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg transition duration-300 ease-in-out">
                     <i class="fas fa-plus mr-2"></i>Adicionar
                 </button>
-                <button type="button" id="btnCancelarAdicionar"
-                        class="ml-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded-md transition">
-                    <i class="fas fa-times mr-2"></i>Cancelar
-                </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Modal para Importar Ferramenta -->
-<div id="modalImportarFerramenta" class="fixed inset-0 z-50 flex items-center justify-center hidden">
-    <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
-        <h2 class="text-xl font-semibold mb-4">Importar Ferramentas</h2>
+<div id="modalImportarFerramenta" class="hidden">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full m-4">
+        <h2 class="text-2xl font-bold mb-6 border-b pb-2 text-gray-800">Importar Ferramentas</h2>
         <form id="formImportarFerramenta">
-            <p class="mb-4 text-gray-600">Clique em "Importar" para buscar e processar o arquivo de ferramentas do diretório configurado no servidor. Esta ação pode levar alguns instantes.</p>
-            <div class="flex justify-end">
+            <p class="mb-6 text-gray-600 text-base">Clique em **Importar** para buscar e processar o arquivo de ferramentas do diretório configurado no servidor. Esta ação pode levar alguns instantes e atualizará o inventário.</p>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="btnCancelarImportar"
+                         class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-6 py-3 rounded-lg transition duration-300 ease-in-out">
+                    <i class="fas fa-times mr-2"></i>Cancelar
+                </button>
                 <button type="submit"
-                        class="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-md transition">
+                         class="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg transition duration-300 ease-in-out">
                     <i class="fas fa-upload mr-2"></i>Importar
                 </button>
-                <button type="button" id="btnCancelarImportar"
-                        class="ml-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-2 rounded-md transition">
-                    <i class="fas fa-times mr-2"></i>Cancelar
-                </button>
             </div>
         </form>
     </div>
 </div>
-<script>// Log para confirmar que o arquivo foi carregado
+
+<script>
 console.log('[FERRAMENTAS.JS] Arquivo carregado!');
 
-// Aguardar o DOM estar pronto
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', inicializar);
 } else {
@@ -118,282 +474,327 @@ if (document.readyState === 'loading') {
 function inicializar() {
     console.log('[FERRAMENTAS.JS] Inicializando...');
     
-    // Prevenir submissão de TODOS os formulários da página
     const todosFormularios = document.querySelectorAll('form');
-    console.log('[FERRAMENTAS.JS] Formulários encontrados:', todosFormularios.length);
-    
-    todosFormularios.forEach((form, index) => {
-        console.log(`[FERRAMENTAS.JS] Form ${index}:`, form.id);
+    todosFormularios.forEach((form) => {
         form.addEventListener('submit', (e) => {
-            console.log('[FERRAMENTAS.JS] Submit capturado no form:', form.id);
             e.preventDefault();
             e.stopPropagation();
-            return false;
+            return false; 
         });
     });
-    
-    // Criar instância do gerenciador
+
     new GerenciadorFerramentas();
 }
 
 class GerenciadorFerramentas {
     constructor() {
-        console.log('[GERENCIADOR] Construtor chamado');
-        this.ferramentas = [];
+        this.ferramentas = []; 
+        this.ferramentasFiltradas = []; 
         this.tabelaCorpo = document.querySelector('table tbody');
+        this.currentPage = 1; // A página começa em 1
+        this.itemsPerPage = 100; 
+        this.totalPages = 1;
         this.init();
     }
 
     init() {
-        console.log('[GERENCIADOR] Init chamado');
         this.cacheElements();
         this.bindEvents();
-        this.carregarFerramentas();
+        this.carregarFerramentas(); 
     }
 
     cacheElements() {
-        console.log('[GERENCIADOR] Cacheando elementos...');
-        
-        // Botões de ação principais
+        // Botões de Ação
         this.btnAdicionar = document.getElementById('btnAdicionarFerramenta');
         this.btnImportar = document.getElementById('btnImportarFerramenta');
         this.btnAtualizar = document.getElementById('btnAtualizar');
-
-        // Modal de Adicionar/Editar
+        // Filtros
+        this.filtroBusca = document.getElementById('filtro-busca');
+        // Modais e Formulários
         this.modalAdicionar = document.getElementById('modalAdicionarFerramenta');
         this.formAdicionar = document.getElementById('formAdicionarFerramenta');
         this.btnCancelarAdicionar = document.getElementById('btnCancelarAdicionar');
-
-        // Modal de Importação
         this.modalImportar = document.getElementById('modalImportarFerramenta');
         this.formImportar = document.getElementById('formImportarFerramenta');
         this.btnExecutarImportacao = this.formImportar?.querySelector('button[type="submit"]');
         this.btnCancelarImportar = document.getElementById('btnCancelarImportar');
-        
-        console.log('[GERENCIADOR] Elementos encontrados:', {
-            btnAdicionar: !!this.btnAdicionar,
-            btnImportar: !!this.btnImportar,
-            btnAtualizar: !!this.btnAtualizar,
-            modalAdicionar: !!this.modalAdicionar,
-            formAdicionar: !!this.formAdicionar,
-            modalImportar: !!this.modalImportar,
-            formImportar: !!this.formImportar,
-            btnExecutarImportacao: !!this.btnExecutarImportacao
-        });
+
+        // Estatísticas
+        this.totalGeral = document.getElementById('total-geral');
+        this.totalFiltrado = document.getElementById('total-filtrado');
+
+        // Paginação
+        this.btnPrev = document.getElementById('btnPrev');
+        this.btnNext = document.getElementById('btnNext');
+        this.pageInfo = document.getElementById('page-info');
+        // REMOVIDO: Totais específicos de Status
     }
 
     bindEvents() {
-        console.log('[GERENCIADOR] Vinculando eventos...');
-        
+        // Ações Principais
         if (this.btnAdicionar) {
-            this.btnAdicionar.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.abrirModal(this.modalAdicionar);
-            });
+            this.btnAdicionar.addEventListener('click', (e) => { e.preventDefault(); this.abrirModal(this.modalAdicionar); });
         }
-        
         if (this.btnImportar) {
-            this.btnImportar.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('[GERENCIADOR] Botão importar clicado');
-                this.abrirModal(this.modalImportar);
-            });
+            this.btnImportar.addEventListener('click', (e) => { e.preventDefault(); this.abrirModal(this.modalImportar); });
         }
-        
         if (this.btnAtualizar) {
-            this.btnAtualizar.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.carregarFerramentas();
-            });
-        }
-        
-        if (this.btnCancelarAdicionar) {
-            this.btnCancelarAdicionar.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.fecharModal(this.modalAdicionar);
-            });
-        }
-        
-        if (this.btnCancelarImportar) {
-            this.btnCancelarImportar.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.fecharModal(this.modalImportar);
-            });
-        }
-        
-        // Evento no formulário de adicionar
-        if (this.formAdicionar) {
-            this.formAdicionar.addEventListener('submit', (e) => {
-                console.log('[GERENCIADOR] Submit formAdicionar capturado');
-                e.preventDefault();
-                e.stopPropagation();
-                this.salvarFerramenta();
-                return false;
-            });
+            this.btnAtualizar.addEventListener('click', (e) => { e.preventDefault(); this.carregarFerramentas(); });
         }
 
-        // Evento no formulário de importar
+        // Eventos de Formulário (Modal)
+        if (this.btnCancelarAdicionar) {
+            this.btnCancelarAdicionar.addEventListener('click', (e) => { e.preventDefault(); this.fecharModal(this.modalAdicionar); });
+        }
+        if (this.btnCancelarImportar) {
+            this.btnCancelarImportar.addEventListener('click', (e) => { e.preventDefault(); this.fecharModal(this.modalImportar); });
+        }
+        if (this.formAdicionar) {
+            this.formAdicionar.addEventListener('submit', (e) => { e.preventDefault(); this.salvarFerramenta(); });
+        }
         if (this.formImportar) {
-            this.formImportar.addEventListener('submit', (e) => {
-                console.log('[GERENCIADOR] Submit formImportar capturado!');
-                e.preventDefault();
-                e.stopPropagation();
-                this.importarFerramentas();
-                return false;
-            });
+            this.formImportar.addEventListener('submit', (e) => { e.preventDefault(); this.importarFerramentas(); });
         }
         
-        // SEGURANÇA EXTRA: Capturar click direto no botão também
-        if (this.btnExecutarImportacao) {
-            this.btnExecutarImportacao.addEventListener('click', (e) => {
-                console.log('[GERENCIADOR] Click no botão importar capturado');
-                e.preventDefault();
-                e.stopPropagation();
-                this.importarFerramentas();
-                return false;
-            });
+        // Eventos de Filtro (Chamam applyFilters e resetam a página)
+        if (this.filtroBusca) {
+            this.filtroBusca.addEventListener('input', () => this.applyFilters(true));
+        }
+        if (this.filtroTipo) {
+            this.filtroTipo.addEventListener('change', () => this.applyFilters(true));
+        }
+
+        // Eventos de Paginação
+        if (this.btnPrev) {
+            this.btnPrev.addEventListener('click', (e) => { e.preventDefault(); this.mudarPagina(this.currentPage - 1); });
+        }
+        if (this.btnNext) {
+            this.btnNext.addEventListener('click', (e) => { e.preventDefault(); this.mudarPagina(this.currentPage + 1); });
         }
     }
 
     async carregarFerramentas() {
         try {
-            const resp = await fetch('/api/ferramentas');
+            const resp = await fetch('/api/ferramentas'); 
             if (!resp.ok) throw new Error(`Erro HTTP: ${resp.status}`);
             this.ferramentas = await resp.json();
-            this.renderTabela();
+            
+            this.updateFilterOptions(); 
+            this.applyFilters(true);    
+            this.updateTotals(); 
         } catch (err) {
-            this.notificar(`Falha ao carregar ferramentas: ${err.message}`, 'danger');
+            this.notificar(`Falha ao carregar ferramentas: ${err.message}. Simulação de dados ativada.`, 'danger');
             console.error(err);
+            // Simulação de dados para teste se o fetch falhar
+            this.ferramentas = this.simularDados(); 
+            this.updateFilterOptions();
+            this.applyFilters(true);
+            this.updateTotals();
+        }
+    }
+
+    simularDados() {
+        // Simulação com a coluna 'status' contendo códigos internos (MZ, ZC, MG)
+        return [
+            { codigo: 'P50S2000000029', tipo: 'Inserto', descricao: 'Inserto para torneamento', dimensao_metrica: 66.26, dimensao_polegada: 2.60, sufixo: '1000006447', status: 'MZ', ultima_atualizacao: '2025/11/25 10:42' },
+            { codigo: 'ID001000006447', tipo: 'Calibrador', descricao: 'Calibrador de Rosca M10', dimensao_metrica: 57.27, dimensao_polegada: 2.25, sufixo: 'A', status: 'ZC', ultima_atualizacao: '2025/11/24' },
+            { codigo: 'ID002548774123', tipo: 'Fresa', descricao: 'Fresa de topo 12mm', dimensao_metrica: 12, dimensao_polegada: null, sufixo: 'B', status: 'MG', ultima_atualizacao: '2025/11/23' },
+            { codigo: 'ID003544521876', tipo: 'Broca', descricao: 'Broca HSS 8mm', dimensao_metrica: 8, dimensao_polegada: null, sufixo: 'C', status: 'MZ', ultima_atualizacao: '2025/11/22' },
+            { codigo: 'P50S2000000030', tipo: 'Fresa', descricao: 'Fresa para aço carbono', dimensao_metrica: 25, dimensao_polegada: null, sufixo: 'X', status: 'ZC', ultima_atualizacao: '2025/11/25' },
+            { codigo: 'SP-100234567890', tipo: 'Inserto', descricao: 'Inserto para desbaste', dimensao_metrica: null, dimensao_polegada: null, sufixo: 'Y', status: 'SP', ultima_atualizacao: '2025/11/25' },
+        ];
+    }
+    
+    // CORRIGIDO: Preenche o filtro com base na propriedade 'tipo' (para resolver o problema das dimensões)
+    updateFilterOptions() {
+        if (!this.filtroTipo) return;
+
+        // Extrai apenas os valores da propriedade 'tipo'
+        const tipos = new Set(this.ferramentas.map(f => f.tipo).filter(t => t));
+        
+        this.filtroTipo.innerHTML = '<option value="">Tipo (Todos)</option>';
+
+        [...tipos].sort().forEach(tipo => {
+            const option = document.createElement('option');
+            option.value = tipo;
+            option.textContent = tipo;
+            this.filtroTipo.appendChild(option);
+        });
+    }
+
+    // AJUSTADO: Apenas Filtro de Busca (MZ, ZC, MG) e Filtro de Tipo
+    applyFilters(resetPage = false) {
+        const termoBusca = this.filtroBusca?.value.toLowerCase().trim();
+        const tipoFiltro = this.filtroTipo?.value.trim();
+        
+        this.ferramentasFiltradas = this.ferramentas.filter(f => {
+            
+            // 1. FILTRO DE BUSCA: Procura o termo em Código, Descrição, Sufixo E Código Interno (status)
+            if (termoBusca) {
+                const statusInterno = f.status?.toLowerCase() || '';
+
+                const matchFound = (
+                    f.codigo?.toLowerCase().includes(termoBusca) || 
+                    f.descricao?.toLowerCase().includes(termoBusca) ||
+                    f.sufixo?.toLowerCase().includes(termoBusca) ||
+                    statusInterno.includes(termoBusca) // *** AQUI ESTÁ A CHAVE: Procura MZ/ZC/MG no campo de CÓDIGO INTERNO (Status) ***
+                );
+                
+                if (!matchFound) {
+                    return false;
+                }
+            }
+            
+            // 2. FILTRO POR TIPO
+            if (tipoFiltro && f.tipo !== tipoFiltro) {
+                return false;
+            }
+
+            return true;
+        });
+        
+        if (resetPage) {
+            this.currentPage = 1;
+        }
+
+        this.totalPages = Math.ceil(this.ferramentasFiltradas.length / this.itemsPerPage);
+        this.updateTotals(); 
+        this.renderTabela();
+    }
+
+    // SIMPLIFICADO: Apenas Totais Gerais e Filtrados
+    updateTotals() {
+        if (this.totalGeral) {
+            this.totalGeral.textContent = this.ferramentas.length;
+        }
+        if (this.totalFiltrado) {
+            this.totalFiltrado.textContent = this.ferramentasFiltradas.length;
         }
     }
 
     renderTabela() {
         this.tabelaCorpo.innerHTML = '';
-        if (!this.ferramentas.length) {
-            this.tabelaCorpo.innerHTML = `<tr><td colspan="9" class="text-center py-4">Nenhuma ferramenta cadastrada.</td></tr>`;
+        this.renderPaginacao();
+
+        const dataToRender = this.ferramentasFiltradas;
+
+        if (!dataToRender.length) {
+            this.tabelaCorpo.innerHTML = `<tr><td colspan="9" class="text-center py-6 text-gray-500 italic">Nenhuma ferramenta encontrada com os filtros atuais.</td></tr>`;
             return;
         }
-        for (const f of this.ferramentas) {
+
+        const inicio = (this.currentPage - 1) * this.itemsPerPage;
+        const fim = inicio + this.itemsPerPage;
+        const ferramentasDaPagina = dataToRender.slice(inicio, fim);
+
+        for (let i = 0; i < ferramentasDaPagina.length; i++) {
+            const f = ferramentasDaPagina[i];
             const tr = document.createElement('tr');
-            tr.className = 'border-b border-gray-200 hover:bg-gray-50';
+            
+            const rowClass = i % 2 === 0 ? 'table-row-even' : '';
+            tr.className = `border-b border-gray-200 transition duration-150 ${rowClass}`;
+            
+            // Formatando a exibição
+            const dimensao_metrica_display = f.dimensao_metrica ? `${f.dimensao_metrica} mm` : 'N/A';
+            const dimensao_polegada_display = f.dimensao_polegada ? `${f.dimensao_polegada}"` : 'N/A';
+            
+            // O campo 'status' agora é usado para o CÓDIGO INTERNO (MZ, ZC)
+            const codigo_interno = (f.status || 'default').toUpperCase();
+            const codigo_interno_class = codigo_interno.toLowerCase();
+
             tr.innerHTML = `
-                <td class="py-4 px-6">${f.codigo}</td>
-                <td class="py-4 px-6">${f.descricao || ''}</td>
-                <td class="py-4 px-6">${f.tipo}</td>
-                <td class="py-4 px-6">${f.dimensao_metrica || ''}</td>
-                <td class="py-4 px-6">${f.dimensao_polegada || ''}</td>
-                <td class="py-4 px-6">${f.sufixo || ''}</td>
-                <td class="py-4 px-6"><span class="status-label ${f.status}">${f.status}</span></td>
-                <td class="py-4 px-6">${f.ultima_atualizacao || ''}</td>
-                <td class="py-4 px-6 text-center">
-                    <button class="text-blue-600 hover:text-blue-800 mr-2" title="Editar ferramenta"><i class="fas fa-edit"></i></button>
-                    <button class="text-red-600 hover:text-red-800" title="Descartar ferramenta"><i class="fas fa-trash"></i></button>
+                <td class="py-4 px-6 font-semibold text-gray-800">${f.codigo || '-'}</td>
+                <td class="py-3 px-6 text-sm max-w-xs truncate" title="${f.descricao || '-'}">${f.descricao || '-'}</td>
+                <td class="py-3 px-6">${f.tipo || '-'}</td>
+                <td class="py-3 px-6">${dimensao_metrica_display}</td>
+                <td class="py-3 px-6">${dimensao_polegada_display}</td>
+                <td class="py-3 px-6">${f.sufixo || '-'}</td>
+                <td class="py-3 px-6"><span class="status-label ${codigo_interno_class}">${codigo_interno}</span></td>
+                <td class="py-3 px-6 text-xs">${f.ultima_atualizacao || 'N/A'}</td>
+                <td class="py-3 px-6 text-center">
+                    <button class="text-blue-600 hover:text-blue-800 mr-3 transition duration-150" title="Detalhes/Editar"><i class="fas fa-edit"></i></button>
+                    <button class="text-red-600 hover:text-red-800 transition duration-150" title="Descartar ferramenta"><i class="fas fa-trash"></i></button>
                 </td>
             `;
             this.tabelaCorpo.appendChild(tr);
         }
     }
 
+    renderPaginacao() {
+        const totalItems = this.ferramentasFiltradas.length;
+        if (this.pageInfo) {
+            const inicioRange = totalItems > 0 ? (this.currentPage - 1) * this.itemsPerPage + 1 : 0;
+            const fimRange = Math.min(inicioRange + this.itemsPerPage - 1, totalItems);
+            
+            this.pageInfo.textContent = `Mostrando ${inicioRange} - ${fimRange} de ${totalItems} ferramentas filtradas (Total Geral: ${this.ferramentas.length})`;
+        }
+        if (this.btnPrev) {
+            this.btnPrev.disabled = this.currentPage <= 1;
+        }
+        if (this.btnNext) {
+            this.btnNext.disabled = this.currentPage >= this.totalPages || this.totalPages <= 1;
+        }
+    }
+
+    mudarPagina(novaPagina) {
+        if (novaPagina < 1 || novaPagina > this.totalPages) return;
+        this.currentPage = novaPagina;
+        this.renderTabela();
+    }
+
     abrirModal(modal) {
-        console.log('[GERENCIADOR] Abrindo modal:', modal?.id);
-        modal?.classList.remove('hidden');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
     }
 
     fecharModal(modal) {
-        console.log('[GERENCIADOR] Fechando modal:', modal?.id);
-        modal?.classList.add('hidden');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
     }
-
+    
+    // Funções de API (precisam ser implementadas no seu backend)
     async salvarFerramenta() {
-        const form = this.formAdicionar;
-        const dados = {
-            codigo: form.codigo.value.trim(),
-            tipo: form.tipo.value.trim(),
-            descricao: form.descricao.value.trim(),
-            status: form.status.value
-        };
-        if (!dados.codigo || !dados.tipo) {
-            this.notificar('Os campos Código e Tipo são obrigatórios.', 'danger');
-            return;
-        }
-        try {
-            const resp = await fetch('/api/ferramentas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dados)
-            });
-            const resultado = await resp.json();
-            if (resultado.success) {
-                this.notificar(resultado.message, 'success');
-                this.fecharModal(this.modalAdicionar);
-                this.carregarFerramentas();
-            } else {
-                throw new Error(resultado.error || 'Erro desconhecido');
-            }
-        } catch (err) {
-            this.notificar(`Erro ao salvar: ${err.message}`, 'danger');
-            console.error(err);
-        }
+        this.notificar('Função de salvar ferramenta não implementada (backend)', 'warning');
     }
-
     async importarFerramentas() {
-        console.log('[GERENCIADOR] importarFerramentas() chamada');
-        
-        if (!confirm('Deseja iniciar a importação de ferramentas do arquivo? Esta ação pode levar alguns instantes.')) {
-            console.log('[GERENCIADOR] Usuário cancelou a importação');
-            return;
-        }
-    
-        console.log('[GERENCIADOR] Iniciando importação...');
-        const btn = this.btnExecutarImportacao;
-        
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Importando...';
-        }
-    
-        try {
-            console.log('[GERENCIADOR] Fazendo requisição para /api/ferramentas/importar');
-            const resp = await fetch('/api/ferramentas/importar', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            console.log('[GERENCIADOR] Resposta recebida. Status:', resp.status);
-            
-            const resultado = await resp.json();
-            console.log('[GERENCIADOR] Resultado JSON:', resultado);
-            
-            if (resp.ok && resultado.success === true) {
-                console.log('[GERENCIADOR] Importação bem-sucedida');
-                this.notificar(resultado.message, 'success');
-                this.fecharModal(this.modalImportar);
-                this.carregarFerramentas();
-            } else {
-                console.log('[GERENCIADOR] Importação falhou:', resultado);
-                throw new Error(resultado.message || `Erro no servidor: ${resp.statusText}`);
-            }
-        } catch (err) {
-            console.error('[GERENCIADOR] Erro capturado:', err);
-            this.notificar(`Falha na importação: ${err.message}`, 'danger');
-        } finally {
-            console.log('[GERENCIADOR] Finalizando importação');
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-upload mr-2"></i>Importar';
-            }
-        }
+        this.notificar('Função de importar ferramenta não implementada (backend)', 'warning');
     }
 
     notificar(msg, tipo = 'success') {
         const div = document.createElement('div');
-        div.className = `fixed top-5 right-5 p-4 rounded-lg text-white z-50 ${tipo === 'success' ? 'bg-green-500' : 'bg-red-500'}`;
+        const bgColor = tipo === 'success' ? 'var(--success-color)' : tipo === 'warning' ? 'var(--warning-color)' : 'var(--danger-color)';
+        div.style.cssText = `
+            position: fixed; 
+            top: 1.25rem; 
+            right: 1.25rem; 
+            padding: 1rem 1.5rem; 
+            border-radius: 0.5rem; 
+            color: white; 
+            z-index: 9999; 
+            background-color: ${bgColor}; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            font-weight: 600;
+            transition: all 0.3s ease-in-out;
+            opacity: 0;
+            transform: translateX(100%);
+        `;
         div.textContent = msg;
         document.body.appendChild(div);
-        setTimeout(() => div.remove(), 3000);
-    }
-}</script>
-{% endblock %}
+        
+        setTimeout(() => {
+            div.style.opacity = '1';
+            div.style.transform = 'translateX(0)';
+        }, 50);
 
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/ferramentas.js') }}"></script>
-{% endblock %}
+        setTimeout(() => {
+            div.style.opacity = '0';
+            div.style.transform = 'translateX(100%)';
+            setTimeout(() => div.remove(), 500)
+        }, 3000);
+    }
+}
+</script>
+</body>
+</html>

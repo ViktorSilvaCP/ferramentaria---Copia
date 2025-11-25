@@ -17,19 +17,12 @@ CAMINHO_FONTE = r'F:\Doc_Comp\(Publico)\ferramentas'
 COLUNAS_DESEJADAS = ['indeks', 'status', 'Wymiar metryczny', 'Wymiar calowy', 'Opis']
 
 
-# helper functions
 def _normalize_col_name(col):
-    # Normaliza para facilitar comparação (remove acentos, espaços e transforma em lower)
     no_accents = normalize('NFKD', str(col)).encode('ASCII', 'ignore').decode('ASCII')
     return re.sub(r'\s+', '', no_accents).lower()
 
 
 def _find_column(df, keywords):
-    """
-    Procura a primeira coluna do dataframe cujo nome normalizado contenha qualquer uma das keywords.
-    keywords: lista de strings já normalizadas (sem espaços e em lower)
-    Retorna o nome real da coluna ou None.
-    """
     col_map = {col: _normalize_col_name(col) for col in df.columns}
     for col, norm in col_map.items():
         for kw in keywords:
@@ -39,26 +32,27 @@ def _find_column(df, keywords):
 
 
 def extrair_indice_ferramenta(codigo_completo):
-    """
-    Ex: RS022000000103 -> RS022
-    """
     if not codigo_completo or not isinstance(codigo_completo, str):
         return None
+    
     codigo = codigo_completo.strip().upper()
-    match = re.match(r'([A-Z]+[0-9]+)', codigo)
+    if codigo.startswith('DP018'):
+        match = re.match(r'^([A-Z]{2}\d{5})', codigo)
+        if match:
+            return match.group(1)
+    match = re.match(r'^([A-Z]{2}\d{3})', codigo)
     if match:
         return match.group(1)
+    match = re.match(r'^([A-Z]+\d{3})', codigo)
+    if match:
+        return match.group(1)
+    
     return None
 
-
 def extrair_sufixo_numerico(codigo_completo):
-    """
-    Ex: RS022000000103 -> 103 (remove zeros à esquerda)
-    """
     if not codigo_completo or not isinstance(codigo_completo, str):
         return None
     codigo = codigo_completo.strip()
-    # Extrai dígitos finais
     digitos = ''
     for char in reversed(codigo):
         if char.isdigit():
@@ -69,10 +63,6 @@ def extrair_sufixo_numerico(codigo_completo):
 
 
 def importar_ferramentas_para_db(db, Ferramenta, dados):
-    """
-    Persiste lista de registros no banco.
-    Retorna (adicionadas, atualizadas)
-    """
     try:
         if not dados:
             logger.warning("Nenhum dado de ferramentas para importar")
@@ -85,30 +75,24 @@ def importar_ferramentas_para_db(db, Ferramenta, dados):
             codigo = item['codigo']
             status = item.get('status', 'disponivel')
             wym_metryczny = item.get('Wymiar metryczny')
-            descricao = item.get('Opis')
             wymiar_calowy = item.get('Wymiar calowy')
             tipo = f"{wym_metryczny or 'N/A'} / {wymiar_calowy or 'N/A'}"
             sufixo = item.get('sufixo')
 
-            # Busca ferramenta existente
             ferramenta = Ferramenta.query.filter_by(codigo=codigo).first()
 
             if ferramenta:
-                # Atualiza existente
                 ferramenta.status = status
                 ferramenta.tipo = tipo
-                ferramenta.descricao = descricao
                 ferramenta.dimensao_metrica = str(wym_metryczny) if wym_metryczny else None
                 ferramenta.dimensao_polegada = str(wymiar_calowy) if wymiar_calowy else None
                 ferramenta.sufixo = sufixo
                 atualizadas += 1
             else:
-                # Cria nova
                 nova_ferramenta = Ferramenta(
                     codigo=codigo,
                     tipo=tipo,
                     status=status,
-                    descricao=descricao,
                     dimensao_metrica=str(wym_metryczny) if wym_metryczny else None,
                     dimensao_polegada=str(wymiar_calowy) if wymiar_calowy else None,
                     sufixo=sufixo,
@@ -134,10 +118,8 @@ def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=Tru
         'erros': [],
     }
 
-    # 2. Path (blocos de código desorganizados)
     path = Path(caminho_fonte)
 
-    # Início do bloco try/except que estava faltando no seu código
     try:
         if not path.exists():
             msg = f"Diretório não encontrado: {caminho_fonte}"
@@ -147,14 +129,22 @@ def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=Tru
 
         logger.info(f"Buscando arquivos em: {caminho_fonte}")
         arquivos = list(path.glob('*.xls')) + list(path.glob('*.xlsx'))
+        
+        # Ignorar arquivos temporários do Excel
+        arquivos = [a for a in arquivos if not a.name.startswith('~$')]
+        
         if not arquivos:
             logger.warning("Nenhum arquivo de ferramentas (.xls, .xlsx) encontrado no diretório.")
             resumo['erros'].append("Nenhum arquivo Excel (.xls, .xlsx) encontrado para importar.")
             return resumo
         
+        logger.info(f"Arquivos encontrados (excluindo temporários): {[a.name for a in arquivos]}")
+        
         for arquivo in arquivos:
             try:
-                # Tenta leitura com diferentes engines para maximizar compatibilidade (Comentário corrigido)
+                logger.info(f"Processando arquivo: {arquivo.name}")
+                
+                # Leitura com diferentes engines 
                 try:
                     if str(arquivo).lower().endswith('.xlsx'):
                         df = pd.read_excel(arquivo, engine='openpyxl')
@@ -177,19 +167,19 @@ def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=Tru
                             pass
                     continue
 
-                # Normalizar nomes de colunas (apenas para busca; não renomear o df)
-                # Procurar colunas candidatas
+                logger.info(f"Arquivo {arquivo.name} carregado com {len(df)} linhas")
+                logger.info(f"Colunas encontradas: {df.columns.tolist()}")
                 codigo_col = _find_column(df, ['indeks', 'index', 'codigo', 'kod', 'code'])
                 status_col = _find_column(df, ['status', 'stan', 'stato'])
                 wym_metryczny_col = _find_column(df, ['wymiarmetryczny', 'metryczny', 'metryka', 'wymiar'])
                 wym_calowy_col = _find_column(df, ['wymiarcalowy', 'calowy', 'cal', 'inch'])
-                opis_col = _find_column(df, ['opis', 'description', 'desc', 'descr'])
+
+                logger.info(f"Mapeamento de colunas: codigo={codigo_col}, status={status_col}, metryczny={wym_metryczny_col}, calowy={wym_calowy_col}")
 
                 if not codigo_col:
                     msg = f"Coluna de código não encontrada em {arquivo.name}"
                     logger.error(msg + f". Colunas disponíveis: {df.columns.tolist()}")
                     resumo['erros'].append(msg)
-                    # mover para pasta erros se for para remover
                     if remover_apos_processar:
                         pasta_erro = path / 'erros'
                         pasta_erro.mkdir(exist_ok=True)
@@ -198,16 +188,19 @@ def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=Tru
                         except Exception as me:
                             logger.error(f"Falha mover {arquivo.name} para erros: {me}")
                     continue
-
-                # Garantir que os valores sejam strings (para extrair índices)
                 df[codigo_col] = df[codigo_col].astype(str).str.strip()
-                # Criar colunas auxiliares
+                logger.info(f"Primeiros 5 códigos: {df[codigo_col].head().tolist()}")
                 df['indice_base'] = df[codigo_col].apply(lambda x: extrair_indice_ferramenta(x) if pd.notna(x) else None)
+                logger.info(f"Primeiros 5 índices extraídos: {df['indice_base'].head().tolist()}")
+                logger.info(f"Índices únicos encontrados: {sorted(set([i for i in df['indice_base'].unique() if i is not None]))}")
+                logger.info(f"Índices válidos configurados: {sorted(INDICES_VALIDOS)}")
+                
                 df_filtrado = df[df['indice_base'].isin(INDICES_VALIDOS)].copy()
 
-                logger.info(f"{len(df_filtrado)} linhas válidas em {arquivo.name}")
+                logger.info(f"{len(df_filtrado)} linhas válidas em {arquivo.name} (de {len(df)} total)")
+                
                 if df_filtrado.empty:
-                    msg = f"Nenhuma ferramenta válida em {arquivo.name}"
+                    msg = f"Nenhuma ferramenta válida em {arquivo.name}. Verifique se os códigos começam com índices válidos."
                     logger.warning(msg)
                     resumo['erros'].append(msg)
                     if remover_apos_processar:
@@ -222,23 +215,22 @@ def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=Tru
                 # Extrair sufixo
                 df_filtrado['sufixo'] = df_filtrado[codigo_col].apply(lambda x: extrair_sufixo_numerico(x) if pd.notna(x) else None)
 
-                # Montar dados padronizados para importação
-                for _, row in df_filtrado.iterrows():
-                    # Fechamento do dicionário e do append que estava faltando
+                # Montar dados padronizados
+                for idx, row in df_filtrado.iterrows():
                     resumo['dados'].append({
                         'codigo': row.get(codigo_col),
-                        'status': row.get(status_col) if status_col in row.index else 'disponivel',
-                        'Wymiar metryczny': row.get(wym_metryczny_col),
-                        'Wymiar calowy': row.get(wym_calowy_col),
-                        'Opis': row.get(opis_col),
+                        'status': row.get(status_col) if status_col and status_col in row.index else 'disponivel',
+                        'Wymiar metryczny': row.get(wym_metryczny_col) if wym_metryczny_col else None,
+                        'Wymiar calowy': row.get(wym_calowy_col) if wym_calowy_col else None,
                         'sufixo': row.get('sufixo')
                     })
 
                 resumo['arquivos_processados'] += 1
+                logger.info(f"Arquivo {arquivo.name} processado com sucesso. Total de dados coletados até agora: {len(resumo['dados'])}")
 
                 if remover_apos_processar:
                     try:
-                        arquivo.unlink() # Remove o arquivo após o processamento
+                        arquivo.unlink()
                         logger.info(f"Arquivo removido: {arquivo.name}")
                     except Exception as e:
                         logger.error(f"Erro ao remover {arquivo.name}: {e}")
@@ -247,7 +239,6 @@ def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=Tru
                 msg = f"Erro ao processar arquivo {arquivo.name}: {e}"
                 logger.error(msg, exc_info=True)
                 resumo['erros'].append(msg)
-                # Bloco de mover para erros (indentação e variáveis corrigidas)
                 if remover_apos_processar:
                     pasta_erro = path / 'erros'
                     pasta_erro.mkdir(exist_ok=True)
@@ -256,6 +247,7 @@ def consumir_ferramentas(caminho_fonte=CAMINHO_FONTE, remover_apos_processar=Tru
                     except Exception as me:
                         logger.error(f"Falha mover {arquivo.name} para erros: {me}")
         
+        logger.info(f"Resumo final: {resumo['arquivos_processados']} arquivos processados, {len(resumo['dados'])} ferramentas encontradas")
         return resumo
 
     except Exception as e:
