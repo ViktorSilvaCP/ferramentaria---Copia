@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+
+{% block title %}Análise de Temperatura{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="relatorio-container">
+        <!-- HEADER -->
+        <div class="section-header mb-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h3 class="section-title">Análise Detalhada de Temperatura</h3>
+                    <p class="text-muted">Monitoramento em tempo real</p>
+                </div>
+                <div class="col-md-4">
+                    <label for="areaFilter" class="form-label"><strong>Selecionar Área:</strong></label>
+                    <select id="areaFilter" class="form-select">
+                        <option value="latas">Latas</option>
+                        <option value="tampas">Tampas</option>
+                        {% if current_user.area == 'supervisor' %}
+                            <option value="todas" selected>Todas as Áreas (Supervisor)</option>
+                        {% endif %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- SUPERVISOR DASHBOARD (TODAS AS ÁREAS) -->
+        <div id="supervisorDashboard" style="display: none;">
+            <!-- KPIs PRINCIPAIS -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card border-left-primary">
+                        <div class="card-body">
+                            <h6 class="text-muted text-uppercase mb-2">Temp. Média Geral</h6>
+                            <h3 id="tempMediaGeral" class="mb-0">--°C</h3>
+                            <small id="tempMediaGeralTendencia" class="text-muted"></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-left-success">
+                        <div class="card-body">
+                            <h6 class="text-muted text-uppercase mb-2">Conformidade</h6>
+                            <h3 id="conformidade" class="mb-0">--%</h3>
+                            <small id="conformidadeDesc" class="text-success"></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-left-warning">
+                        <div class="card-body">
+                            <h6 class="text-muted text-uppercase mb-2">Desvios Detectados</h6>
+                            <h3 id="desvios" class="mb-0">--</h3>
+                            <small id="desviosDesc" class="text-warning"></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-left-info">
+                        <div class="card-body">
+                            <h6 class="text-muted text-uppercase mb-2">Variação Máxima</h6>
+                            <h3 id="variacaoMaxima" class="mb-0">--°C</h3>
+                            <small id="variacaoMaximaDesc" class="text-info"></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRÁFICOS COMPARATIVOS -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">Comparação de Tendências (Latas vs Tampas)</h6>
+                        </div>
+                        <div class="card-body" style="min-height: 350px; display: flex; align-items: center; justify-content: center;">
+                            <div style="width: 100%; height: 300px;">
+                                <canvas id="comparacaoChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">Distribuição de Conformidade</h6>
+                        </div>
+                        <div class="card-body" style="min-height: 350px; display: flex; align-items: center; justify-content: center;">
+                            <div style="width: 100%; height: 300px;">
+                                <canvas id="conformidadeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ANÁLISE DETALHADA POR ÁREA -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">Análise Detalhada por Área</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- LATAS -->
+                                <div class="col-md-6 border-right">
+                                    <h5 class="text-center mb-3">ÁREA DE LATAS</h5>
+                                    <ul class="list-unstyled">
+                                        <li class="mb-2">
+                                            <strong>Temperatura Média:</strong>
+                                            <span id="latasTemp" class="badge badge-pill badge-primary">--°C</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Mínima:</strong>
+                                            <span id="latasTempMin" class="badge badge-pill badge-primary">--°C</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Máxima:</strong>
+                                            <span id="latasTempMax" class="badge badge-pill badge-warning">--°C</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Variação:</strong>
+                                            <span id="latasVariacao" class="badge badge-pill badge-dark">--°C</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Medições Dentro da Norma:</strong>
+                                            <span id="latasConformidade" class="badge badge-pill badge-success">--%</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Última Medição:</strong>
+                                            <span id="latasUltima" class="text-muted">--</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Tendência:</strong>
+                                            <span id="latasTendencia"></span>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <!-- TAMPAS -->
+                                <div class="col-md-6">
+                                    <h5 class="text-center mb-3">ÁREA DE TAMPAS</h5>
+                                    <ul class="list-unstyled">
+                                        <li class="mb-2">
+                                            <strong>Temperatura Média:</strong>
+                                            <span id="tampasTemp" class="badge badge-pill badge-primary">--°C</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Mínima:</strong>
+                                            <span id="tampasTempMin" class="badge badge-pill badge-primary">--°C</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Máxima:</strong>
+                                            <span id="tampasTempMax" class="badge badge-pill badge-warning">--°C</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Variação:</strong>
+                                            <span id="tampasVariacao" class="badge badge-pill badge-dark">--°C</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Medições Dentro da Norma:</strong>
+                                            <span id="tampasConformidade" class="badge badge-pill badge-success">--%</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Última Medição:</strong>
+                                            <span id="tampasUltima" class="text-muted">--</span>
+                                        </li>
+                                        <li class="mb-2">
+                                            <strong>Tendência:</strong>
+                                            <span id="tampasTendencia"></span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRINCIPAIS TENDÊNCIAS -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-warning text-dark">
+                            <h6 class="mb-0">Principais Tendências e Recomendações</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="tendenciasLista" class="row">
+                                <!-- Preenchido dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICO PRINCIPAL (TODAS AS ÁREAS) -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Histórico de Temperatura</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="temperaturaChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+<style>
+.border-left-primary { border-left: 4px solid #007bff !important; }
+.border-left-success { border-left: 4px solid #28a745 !important; }
+.border-left-warning { border-left: 4px solid #ffc107 !important; }
+.border-left-info { border-left: 4px solid #17a2b8 !important; }
+.badge-pill { padding: 0.5rem 1rem; }
+
+/* Badges com cores customizadas */
+.badge-primary {
+    background-color: #007bff !important;
+    color: white !important;
+}
+
+.badge-success {
+    background-color: #28a745 !important;
+    color: white !important;
+}
+
+.badge-warning {
+    background-color: #ffc107 !important;
+    color: white !important;
+}
+
+.badge-danger {
+    background-color: #dc3545 !important;
+    color: white !important;
+}
+
+.badge-dark {
+    background-color: #343a40 !important;
+    color: white !important;
+}
+
+.badge-info {
+    background-color: #17a2b8 !important;
+    color: white !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('temperaturaChart').getContext('2d');
+    const supervisorDashboard = document.getElementById('supervisorDashboard');
+    let chart;
+    let comparacaoChart;
+    let conformidadeChart;
+
+    const areaFilter = document.getElementById('areaFilter');
+
+    async function fetchDataAndRenderChart() {
+        const area = areaFilter.value;
+        supervisorDashboard.style.display = area === 'todas' ? 'block' : 'none';
+
+        const response = await fetch(`/api/temperatura_data?area=${area}`);
+        const data = await response.json();
+
+        if (chart) chart.destroy();
+        if (comparacaoChart) comparacaoChart.destroy();
+        if (conformidadeChart) conformidadeChart.destroy();
+
+        if (area === 'todas') {
+            renderSupervisorDashboard(data);
+        } else {
+            renderDefaultChart(data);
+        }
+    }
+
+    function renderDefaultChart(data) {
+        const pointBackgroundColors = data.map(d => 
+            (d.y < 18.5 || d.y > 21.5) ? 'rgba(255, 99, 132, 1)' : 'rgba(75, 192, 192, 1)'
+        );
+
+        const pointRadius = data.map(d => 
+            (d.y < 18.5 || d.y > 21.5) ? 5 : 3
+        );
+
+        const annotationsPlugin = {
+            id: 'annotationsPlugin',
+            beforeDraw: (chart) => {
+                const {ctx, chartArea: {left, right}, scales: {y}} = chart;
+                ctx.save();
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+
+                const yLimitMin = y.getPixelForValue(18.5);
+                ctx.strokeStyle = 'rgba(255, 99, 132, 0.7)';
+                ctx.beginPath();
+                ctx.moveTo(left, yLimitMin);
+                ctx.lineTo(right, yLimitMin);
+                ctx.stroke();
+
+                const yLimitMax = y.getPixelForValue(21.5);
+                ctx.beginPath();
+                ctx.moveTo(left, yLimitMax);
+                ctx.lineTo(right, yLimitMax);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        };
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Temperatura (°C)',
+                    data: data,
+                    borderColor: 'rgba(75, 192, 192, 0.5)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    pointBackgroundColor: pointBackgroundColors,
+                    pointRadius: pointRadius,
+                    pointHoverRadius: 7,
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            tooltipFormat: 'dd/MM/yyyy HH:mm',
+                            displayFormats: { day: 'dd/MM' }
+                        },
+                        title: { display: true, text: 'Data e Hora' }
+                    },
+                    y: {
+                        title: { display: true, text: 'Temperatura (°C)' },
+                        min: 15, max: 25, suggestedMin: 17, suggestedMax: 23
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            afterBody: function(context) {
+                                const dataPoint = context[0].raw;
+                                const tooltipText = [];
+                                if (dataPoint.medicoesDia && dataPoint.medicoesDia.length > 0) {
+                                    tooltipText.push('');
+                                    tooltipText.push('--- Medições do Dia ---');
+                                    dataPoint.medicoesDia.forEach(medicao => {
+                                        let linha = `${medicao.horario} - ${medicao.temperatura}°C (${medicao.nome})`;
+                                        if (medicao.justificativa) linha += ` - Just.: ${medicao.justificativa}`;
+                                        tooltipText.push(linha);
+                                    });
+                                }
+                                return tooltipText;
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [annotationsPlugin]
+        });
+    }
+
+    function renderSupervisorDashboard(allData) {
+        // Separar dados por área
+        const response = fetch(`/api/temperatura_stats`).then(r => r.json());
+        
+        // Renderizar gráfico padrão
+        renderDefaultChart(allData);
+        
+        // Buscar estatísticas
+        response.then(stats => {
+            atualizarKPIs(stats);
+            renderComparacaoChart(stats);
+            renderConformidadeChart(stats);
+            renderTendencias(stats);
+        });
+    }
+
+    function atualizarKPIs(stats) {
+        const latas = stats.latas;
+        const tampas = stats.tampas;
+        const geral = stats.geral;
+
+        document.getElementById('tempMediaGeral').textContent = geral.media.toFixed(1) + '°C';
+        document.getElementById('conformidade').textContent = geral.conformidade.toFixed(0) + '%';
+        document.getElementById('desvios').textContent = geral.desvios;
+        document.getElementById('variacaoMaxima').textContent = geral.variacao.toFixed(1) + '°C';
+
+        document.getElementById('latasTemp').textContent = latas.media.toFixed(1) + '°C';
+        document.getElementById('latasTempMin').textContent = latas.minima.toFixed(1) + '°C';
+        document.getElementById('latasTempMax').textContent = latas.maxima.toFixed(1) + '°C';
+        document.getElementById('latasVariacao').textContent = (latas.maxima - latas.minima).toFixed(1) + '°C';
+        document.getElementById('latasConformidade').textContent = latas.conformidade.toFixed(0) + '%';
+        document.getElementById('latasUltima').textContent = latas.ultimaData;
+        document.getElementById('latasTendencia').innerHTML = getTendenciaIcon(latas.tendencia);
+
+        document.getElementById('tampasTemp').textContent = tampas.media.toFixed(1) + '°C';
+        document.getElementById('tampasTempMin').textContent = tampas.minima.toFixed(1) + '°C';
+        document.getElementById('tampasTempMax').textContent = tampas.maxima.toFixed(1) + '°C';
+        document.getElementById('tampasVariacao').textContent = (tampas.maxima - tampas.minima).toFixed(1) + '°C';
+        document.getElementById('tampasConformidade').textContent = tampas.conformidade.toFixed(0) + '%';
+        document.getElementById('tampasUltima').textContent = tampas.ultimaData;
+        document.getElementById('tampasTendencia').innerHTML = getTendenciaIcon(tampas.tendencia);
+    }
+
+    function renderComparacaoChart(stats) {
+        const ctx = document.getElementById('comparacaoChart').getContext('2d');
+        comparacaoChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'],
+                datasets: [
+                    {
+                        label: 'Latas',
+                        data: stats.latas.historico,
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Tampas',
+                        data: stats.tampas.historico,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: { 
+                    legend: { display: true, position: 'top' } 
+                },
+                scales: { 
+                    y: { 
+                        title: { display: true, text: 'Temperatura (°C)' },
+                        min: 17,
+                        max: 24
+                    } 
+                }
+            }
+        });
+    }
+
+    function renderConformidadeChart(stats) {
+        const ctx = document.getElementById('conformidadeChart').getContext('2d');
+        conformidadeChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Conforme', 'Desvios'],
+                datasets: [{
+                    data: [
+                        stats.geral.conformidade,
+                        100 - stats.geral.conformidade
+                    ],
+                    backgroundColor: ['#28a745', '#dc3545'],
+                    borderColor: ['#fff', '#fff'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: { 
+                    legend: { display: true, position: 'bottom' },
+                    tooltip: { 
+                        callbacks: { 
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderTendencias(stats) {
+        const container = document.getElementById('tendenciasLista');
+        const tendencias = gerarTendencias(stats);
+        
+        container.innerHTML = tendencias.map((t, i) => `
+            <div class="col-md-6 mb-3">
+                <div class="alert alert-${t.tipo} mb-0">
+                    <strong>${t.emoji} ${t.titulo}</strong>
+                    <p class="mb-0 mt-2">${t.descricao}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function gerarTendencias(stats) {
+        const tendencias = [];
+
+        if (stats.geral.conformidade < 80) {
+            tendencias.push({
+                tipo: 'danger',
+                emoji: '⚠️',
+                titulo: 'Conformidade Crítica',
+                descricao: `Apenas ${stats.geral.conformidade.toFixed(0)}% das medições estão dentro da norma. Recomenda-se verificar equipamentos de refrigeração.`
+            });
+        }
+
+        if (Math.abs(stats.latas.media - stats.tampas.media) > 1) {
+            tendencias.push({
+                tipo: 'warning',
+                emoji: '📊',
+                titulo: 'Diferença entre Áreas',
+                descricao: `Diferença de ${Math.abs(stats.latas.media - stats.tampas.media).toFixed(1)}°C entre Latas e Tampas. Verificar distribuição do ar condicionado.`
+            });
+        }
+
+        if (stats.geral.variacao > 2) {
+            tendencias.push({
+                tipo: 'warning',
+                emoji: '📈',
+                titulo: 'Variação Elevada',
+                descricao: `Variação de ${stats.geral.variacao.toFixed(1)}°C detectada. Melhorar isolamento ou horários de parada.`
+            });
+        }
+
+        if (stats.geral.conformidade >= 95) {
+            tendencias.push({
+                tipo: 'success',
+                emoji: '✅',
+                titulo: 'Controle Excelente',
+                descricao: `${stats.geral.conformidade.toFixed(0)}% de conformidade. Manter procedimentos atuais de monitoramento.`
+            });
+        }
+
+        if (tendencias.length === 0) {
+            tendencias.push({
+                tipo: 'info',
+                emoji: '📋',
+                titulo: 'Situação Estável',
+                descricao: `Temperatura sob controle em ambas as áreas. Continue monitorando regularmente.`
+            });
+        }
+
+        return tendencias;
+    }
+
+    function getTendenciaIcon(tendencia) {
+        if (tendencia === 'subindo') return '<span class="badge badge-danger">📈 Subindo</span>';
+        if (tendencia === 'descendo') return '<span class="badge badge-success">📉 Descendo</span>';
+        return '<span class="badge badge-dark">➡️ Estável</span>';
+    }
+
+    areaFilter.addEventListener('change', fetchDataAndRenderChart);
+    fetchDataAndRenderChart();
+});
+</script>
+{% endblock %}

@@ -43,7 +43,39 @@
                     <label for="equipamento">Equipamento:</label>
                     <select id="equipamento" name="equipamento" required>
                         <option value="" disabled selected>Selecione um equipamento</option>
-                        {% if current_user.area == 'tampas' %}
+                        {% if current_user.area == 'supervisor' %}
+                        <!-- Equipamentos para SUPERVISOR (todos) -->
+                        <optgroup label="Tampas">
+                            <option value="SHELL PRESS">SHELL PRESS</option>
+                            <option value="CONVERSION 1">CONVERSION 1</option>
+                            <option value="CONVERSION 2">CONVERSION 2</option>
+                            <option value="CONVERSION 3">CONVERSION 3</option>
+                            <option value="CONVERSION 4">CONVERSION 4</option>  
+                            <option value="LINER">LINER</option>
+                            <option value="Balancer">Balancer</option>
+                        </optgroup>
+                        <optgroup label="Latas">
+                            <option value="BodyMaker V1">BodyMaker V1</option>
+                            <option value="BodyMaker V2">BodyMaker V2</option>
+                            <option value="BodyMaker V3">BodyMaker V3</option>
+                            <option value="BodyMaker V4">BodyMaker V4</option>
+                            <option value="BodyMaker V5">BodyMaker V5</option>
+                            <option value="BodyMaker V6">BodyMaker V6</option>
+                            <option value="BodyMaker V7">BodyMaker V7</option>
+                            <option value="BodyMaker W1">BodyMaker W1</option>
+                            <option value="BodyMaker W2">BodyMaker W2</option>
+                            <option value="BodyMaker W3">BodyMaker W3</option>
+                            <option value="BodyMaker W4">BodyMaker W4</option>
+                            <option value="BodyMaker W5">BodyMaker W5</option>
+                            <option value="BodyMaker W6">BodyMaker W6</option>
+                            <option value="BodyMaker W7">BodyMaker W7</option>
+                            <option value="BodyMaker W8">BodyMaker W8</option>
+                            <option value="Cupper 22">Cupper 22</option>
+                            <option value="Cupper 23">Cupper 23</option>
+                            <option value="Necker 22">Necker 22</option>
+                            <option value="Necker 23">Necker 23</option>
+                        </optgroup>
+                        {% elif current_user.area == 'tampas' %}
                         <!-- Equipamentos para área de tampas -->
                         <option value="SHELL PRESS">SHELL PRESS</option>
                         <option value="CONVERSION 1">CONVERSION 1</option>
@@ -90,7 +122,77 @@
                     <label for="codigo_falha">Código de Falha:</label>
                     <select id="codigo_falha" name="codigo_falha" required>
                         <option value="" disabled selected>Selecione um código de falha</option>
-                        {% if current_user.area == 'tampas' %}
+                        {% if current_user.area == 'supervisor' %}
+                        <!-- Códigos de falha para SUPERVISOR (todos) -->
+                        <optgroup label="Tampas">
+                            <option value="Apoio à Produção">Apoio à Produção</option>
+                            <option value="Dimensional Fora do Especificado">Dimensional Fora do Especificado</option>
+                            <option value="Ferramenta Desgastada">Ferramenta Desgastada</option>
+                            <option value="Fratura no Rebite">Fratura no Rebite</option>
+                            <option value="Embolamento de Lâmina">Embolamento de Lâmina</option>
+                            <option value="Estouro de Painel">Estouro de Painel</option>
+                            <option value="Falha no Corte">Falha no Corte</option>
+                            <option value="Inspeção e Medição">Inspeção e Medição</option>
+                            <option value="Limalha no Ferramental">Limalha no Ferramental</option>
+                            <option value="Ferramenta Danificada">Ferramenta Danificada</option>
+                            <option value="Metal Exposto">Metal Exposto</option>
+                            <option value="Mola Quebrada">Mola Quebrada</option>
+                            <option value="Retificação de Calços">Retificação de Calços</option>
+                            <option value="Retorno de Confete">Retorno de Confete</option>
+                            <option value="Retrabalho de Ferramentas">Retrabalho de Ferramentas</option>
+                            <option value="Risco">Risco</option>
+                            <option value="Soltura do Anel">Soltura do Anel</option>
+                            <option value="Tampa Amassada">Tampa Amassada</option>
+                            <option value="Troca do Código de Data">Troca do Código de Data</option>
+                            <option value="Troca dos Selos">Troca dos Selos</option>
+                        </optgroup>
+                        <optgroup label="Latas">
+                            <option value="Falha de extração">Falha de extração</option>
+                            <option value="Lata riscada">Lata riscada</option>
+                            <option value="Lata curta">Lata curta</option>
+                            <option value="Lata comprida">Lata comprida</option>
+                            <option value="1/2 lata">1/2 lata</option>
+                            <option value="Copo estourado">Copo estourado</option>
+                            <option value="Conversão">Conversão</option>
+                            <option value="Lata ovalizada">Lata ovalizada</option>
+                            <option value="Variação de paredes">Variação de paredes</option>
+                            <option value="Acúmulo de óxido">Acúmulo de óxido</option>
+                            <option value="Ferramenta danificada">Ferramenta danificada</option>
+                            <option value="Regeneração">Regeneração</option>
+                            <option value="Rejeição">Rejeição</option>
+                            <option value="Metal exposto">Metal exposto</option>
+                            <option value="Marcas">Marcas</option>
+                            <option value="Quebra">Quebra</option>
+                            <option value="Fratura do Domo">Fratura do Domo</option>
+                            <option value="Chanfro">Chanfro</option>
+                            <option value="Blush">Blush</option>
+                            <option value="Dimensional">Dimensional</option>
+                            <option value="Carga Axial">Carga Axial</option>
+                            <option value="Desgaste">Desgaste</option>
+                            <option value="Lata com orelha">Lata com orelha</option>
+                            <option value="Ajuste Progressão">Ajuste Progressão</option>
+                            <option value="Arranhão">Arranhão</option>
+                            <option value="Cabelo e corte irregular">Cabelo e corte irregular</option>
+                            <option value="Preventiva">Preventiva</option>
+                            <option value="Corretiva">Corretiva</option>
+                            <option value="5S">5S</option>
+                            <option value="Sorriso">Sorriso</option>
+                            <option value="Lata rasgada">Lata rasgada</option>
+                            <option value="Risco/necker">Risco/necker</option>
+                            <option value="Missed part">Missed part</option>
+                            <option value="Desalinhamento">Desalinhamento</option>
+                            <option value="Ondulação na base">Ondulação na base</option>
+                            <option value="Embolamento">Embolamento</option>
+                            <option value="Lata amassada">Lata amassada</option>
+                            <option value="Teste">Teste</option>
+                            <option value="Bucket conveyor">Bucket conveyor</option>
+                            <option value="Empeno">Empeno</option>
+                            <option value="Danificado">Danificado</option>
+                            <option value="Bleed through">Bleed through</option>
+                            <option value="Metal exposto">Metal exposto</option>
+                            <option value="Trip">Trip</option>
+                        </optgroup>
+                        {% elif current_user.area == 'tampas' %}
                         <!-- Códigos de falha para tampas -->
                         <option value="Apoio à Produção">Apoio à Produção</option>
                         <option value="Dimensional Fora do Especificado">Dimensional Fora do Especificado</option>
@@ -183,7 +285,7 @@
                 <!-- Data -->
                 <div class="form-group">
                     <label for="data">Data:</label>
-                    <input type="date" id="data" name="data" readonly required>
+                    <input type="date" id="data" name="data" value="{{ today_date }}" readonly required>
                 </div>
 
                 <!-- Horário Início -->
@@ -211,14 +313,42 @@
                     <label for="comentario">Comentário:</label>
                     <textarea name="comentario" id="comentario" placeholder="Comentário (ex: Ação realizada em 05/06/2024)"></textarea>
                 </div>
+                <!-- Temperatura -->
+                <div class="form-group">
+                    <label for="temperatura">Temperatura (°C):</label>
+                    <input type="number" step="any" id="temperatura" name="temperatura" class="form-control" placeholder="Range máximo permitido 20°C ± 1,5°C">
+                </div>
             </div>
             <br>
             <!-- Add a hidden input for area -->
             <input type="hidden" name="area" value="{{ current_user.area }}">
+            <!-- Campo hidden para justificativa da temperatura -->
+            <input type="hidden" name="temperatura_justificativa" id="temperatura_justificativa">
             <!-- Campo hidden para marcar se a data foi alterada manualmente -->
             <input type="hidden" name="data_alterada_manual" id="data_alterada_manual" value="false">
-            <button type="submit" class="btn">Salvar Relatório</button>
+            <button type="submit" id="submitBtn" class="btn">Salvar Relatório</button>
         </form>
+    </div>
+</div>
+
+<!-- Modal de Justificativa de Temperatura -->
+<div class="modal fade" id="temperaturaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Justificativa de Temperatura</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>A temperatura informada está fora do padrão (20°C ± 1.5°C). Por favor, descreva a ação realizada para corrigir a temperatura.</p>
+                <textarea id="justificativa_texto" class="form-control" rows="4" placeholder="Ex: Ar condicionado foi ligado/ajustado..."></textarea>
+                <div class="invalid-feedback" id="justificativaError" style="display: none;">Este campo é obrigatório.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmarJustificativa">Confirmar e Salvar</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -306,12 +436,57 @@
 <script>
     
     document.addEventListener('DOMContentLoaded', function() {
-        const today = new Date();
-        const formattedDate = today.toISOString().split('T')[0];
-        document.getElementById('data').value = formattedDate;
+        const form = document.querySelector('form');
+        const temperaturaInput = document.getElementById('temperatura');
+        const temperaturaModal = new bootstrap.Modal(document.getElementById('temperaturaModal'));
+        const justificativaInput = document.getElementById('temperatura_justificativa');
+        const justificativaTexto = document.getElementById('justificativa_texto');
+        const justificativaError = document.getElementById('justificativaError');
+
+        let debounceTimer;
+
+        // Lógica de debounce para o input de temperatura
+        temperaturaInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const temperatura = parseFloat(this.value);
+                if (!isNaN(temperatura) && (temperatura < 18.5 || temperatura > 21.5)) {
+                    // Só abre o modal se ainda não houver justificativa válida
+                    if (!justificativaInput.value) {
+                        justificativaTexto.value = ''; // Limpa o texto do modal
+                        temperaturaModal.show();
+                    }
+                } else {
+                    // Se a temperatura voltar ao normal, limpa a justificativa
+                    justificativaInput.value = '';
+                    justificativaTexto.value = '';
+                }
+            }, 1000); // Espera 1 segundo após o usuário parar de digitar
+        });
+
+        form.addEventListener('submit', function(event) {
+            const temperatura = parseFloat(temperaturaInput.value);
+            if (!isNaN(temperatura) && (temperatura < 18.5 || temperatura > 21.5)) {
+                // Se a justificativa ainda não foi preenchida, previne o envio e abre o modal
+                if (!justificativaInput.value) {
+                    event.preventDefault();
+                    mostrarMensagem('A temperatura está fora do padrão. Por favor, forneça uma justificativa no modal que foi aberto.', 'warning');
+                    temperaturaModal.show();
+                }
+            }
+        });
+
+        document.getElementById('confirmarJustificativa').addEventListener('click', function() {
+            if (justificativaTexto.value.trim() === '') {
+                justificativaError.style.display = 'block'; // Mostra erro se o campo estiver vazio
+            } else {
+                justificativaError.style.display = 'none';
+                justificativaInput.value = justificativaTexto.value.trim(); // Salva no input hidden
+                temperaturaModal.hide(); // Apenas fecha o modal
+            }
+        });
     });
 
-    
     function detectarDataNoComentario(texto) {
         
         const padroesData = [

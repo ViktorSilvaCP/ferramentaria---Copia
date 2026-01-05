@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import os
 import sys
 import logging
-from utils.datetime_helper import get_current_datetime, format_datetime, parse_datetime
+from utils.datetime_helper import get_current_datetime, format_datetime, parse_datetime, get_current_date
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side, Color
 from openpyxl.drawing.image import Image
@@ -47,7 +47,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
-base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
+base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 template_path = os.path.join(base_path, "templates")
 static_path = os.path.join(base_path, "static")
 relatorio_path = os.path.join(base_path, "relatorio")
@@ -196,6 +196,69 @@ class Admin:
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def get_turno_horario(horario_str):
+    """
+    Determina qual turno o horário pertence.
+    Turno A: 07:00 - 18:59
+    Turno B: 19:00 - 06:59 (próximo dia)
+    Retorna: 'turno_a', 'turno_b' ou 'fora_turno'
+    """
+    try:
+        hora = int(horario_str.split(':')[0])
+        if 7 <= hora <= 18:
+            return 'turno_a'
+        elif hora >= 19 or hora <= 6:
+            return 'turno_b'
+        else:
+            return 'fora_turno'
+    except:
+        return 'fora_turno'
+
+def existe_temperatura_no_turno(conn, data, turno, area, horario=None, current_id=None):
+    """
+    Verifica se já existe um registro de temperatura obrigatória no turno.
+    Turno A: 07:00 - 18:59
+    Turno B: 19:00 - 06:59 (pode ser no mesmo dia ou próximo)
+    """
+    c = conn.cursor()
+    
+    if turno == 'turno_a':
+        query = """
+            SELECT COUNT(*) FROM historico 
+            WHERE data = ? AND area = ? AND temperatura IS NOT NULL
+            AND horario_inicio >= '07:00' AND horario_inicio <= '18:59'
+        """
+        params = (data, area)
+    elif turno == 'turno_b':
+        # Turno B: 19:00 do dia X até 06:59 do dia X+1
+        data_inicio_turno = data
+        if horario:
+            try:
+                h = int(horario.split(':')[0])
+                if 0 <= h <= 6:
+                    # Se for madrugada, pertence ao turno iniciado no dia anterior
+                    data_inicio_turno = (datetime.strptime(data, '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d')
+            except:
+                pass
+        
+        data_fim_turno = (datetime.strptime(data_inicio_turno, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        query = """
+            SELECT COUNT(*) FROM historico 
+            WHERE area = ? AND temperatura IS NOT NULL
+            AND (
+                (data = ? AND horario_inicio >= '19:00') 
+                OR (data = ? AND horario_inicio <= '06:59')
+            )
+        """
+        params = (area, data_inicio_turno, data_fim_turno)
+    else:
+        return False  # Fora de turno, temperatura é opcional
+    
+    c.execute(query, params)
+    count = c.fetchone()[0]
+    return count > 0
+
 @app.errorhandler(Unauthorized)
 def handle_unauthorized(error):
     return redirect(url_for('login'))
@@ -216,6 +279,20 @@ def init_db():
     conn = sqlite3.connect('relatorio_diario.db')
     c = conn.cursor()
 
+    
+    # --- Verificação e adição da coluna 'temperatura' ---
+    def adicionar_coluna_se_nao_existir(tabela, coluna, tipo):
+        c.execute(f"PRAGMA table_info({tabela})")
+        colunas = [col[1] for col in c.fetchall()]
+        if coluna not in colunas:
+            logging.info(f"Adicionando coluna '{coluna}' à tabela '{tabela}'...")
+            c.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
+            logging.info(f"Coluna '{coluna}' adicionada com sucesso.")
+
+    adicionar_coluna_se_nao_existir('historico', 'temperatura', 'REAL')
+    adicionar_coluna_se_nao_existir('historico_backup', 'temperatura', 'REAL')
+    adicionar_coluna_se_nao_existir('historico', 'temperatura_justificativa', 'TEXT')
+    adicionar_coluna_se_nao_existir('historico_backup', 'temperatura_justificativa', 'TEXT')
     
     c.execute('''CREATE TABLE IF NOT EXISTS admin (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -240,7 +317,9 @@ def init_db():
         horario_termino TEXT,
         foto BLOB,
         eficiencia REAL,
-        area TEXT CHECK(area IN ('tampas', 'latas')) NOT NULL DEFAULT 'latas'
+        area TEXT CHECK(area IN ('tampas', 'latas')) NOT NULL DEFAULT 'latas',
+        temperatura REAL,
+        temperatura_justificativa TEXT
     )''')
 
     
@@ -260,8 +339,10 @@ def init_db():
         horario_termino TEXT,
         foto BLOB,
         eficiencia REAL,
-        editado_por TEXT,
-        data_edicao TEXT
+        editado_por TEXT, 
+        data_edicao TEXT,
+        temperatura REAL,
+        temperatura_justificativa TEXT
     )''')
 
     
@@ -377,6 +458,11 @@ def index():
     
     return render_template('index.html')
 
+@app.route('/analise_temperatura')
+@login_required
+def analise_temperatura():
+    return render_template('analise_temperatura.html')
+
 @app.route('/production')
 @login_required
 def production():  
@@ -465,7 +551,7 @@ def editar_relatorio(id):
             
             c.execute('''SELECT id, data, nome, tipo_acao, equipamento, solicitante, 
                         codigo_falha, causa_encontrada, trabalho_executado, comentario, 
-                        horario_inicio, horario_termino, foto, eficiencia 
+                        horario_inicio, horario_termino, foto, eficiencia, temperatura 
                         FROM historico WHERE id = ?''', (id,))
             registro_original = c.fetchone()
 
@@ -481,10 +567,10 @@ def editar_relatorio(id):
                 INSERT INTO historico_backup (
                     id_original, data, nome, tipo_acao, equipamento, solicitante,
                     codigo_falha, causa_encontrada, trabalho_executado, comentario,
-                    horario_inicio, horario_termino, foto, eficiencia,
+                    horario_inicio, horario_termino, foto, eficiencia, temperatura,
                     editado_por, data_edicao
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            ''', (
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ''', ( 
                 registro_original[0],  
                 registro_original[1],  
                 registro_original[2],  
@@ -498,7 +584,8 @@ def editar_relatorio(id):
                 registro_original[10], 
                 registro_original[11], 
                 registro_original[12], 
-                registro_original[13], 
+                registro_original[13],
+                registro_original[14],
                 current_user.nome      
             ))
 
@@ -763,7 +850,8 @@ def get_all_historico():
             media_vida_util = 0
 
         
-        data_limite = datetime.now() - timedelta(days=30)
+        # Corrigido para usar o fuso horário correto da aplicação
+        data_limite = get_current_datetime() - timedelta(days=30)
         operadores_ativos = db.session.query(
             db.distinct(HistoricoTroca.operador)
         ).filter(
@@ -829,11 +917,12 @@ def registrar_troca():
         if not hasattr(app, '_troca_cache'):
             app._troca_cache = {}
 
-        
-        app._troca_cache[cache_key] = datetime.now()
+        # Corrigido para usar o fuso horário correto da aplicação
+        now_sp = get_current_datetime()
+        app._troca_cache[cache_key] = now_sp
 
         
-        now = datetime.now()
+        now = now_sp # Mantém a variável 'now' para o restante da lógica
         app._troca_cache = {k: v for k, v in app._troca_cache.items() 
                            if (now - v).total_seconds() < 5}
 
@@ -958,7 +1047,8 @@ def criar_ferramenta():
                 ferramenta.status = data['status']
             if data.get('posicao'): 
                 ferramenta.posicao = data.get('posicao')
-            ferramenta.ultima_atualizacao = datetime.utcnow()
+            # Corrigido para usar o fuso horário correto da aplicação
+            ferramenta.ultima_atualizacao = get_current_datetime()
             message = f'Ferramenta {data["codigo"]} atualizada com sucesso!'
         else:
             
@@ -1204,7 +1294,8 @@ def atualizar_posicao_ferramenta(id):
         
         ferramenta_nova.posicao = nova_posicao
         ferramenta_nova.status = 'em_uso'
-        ferramenta_nova.ultima_atualizacao = datetime.utcnow()
+        # Corrigido para usar o fuso horário correto da aplicação
+        ferramenta_nova.ultima_atualizacao = get_current_datetime()
 
         
         db.session.commit()
@@ -1307,7 +1398,8 @@ def add_faca():
             folga=float(data['folga']),
             spacer=data.get('spacer'),
             utilizador=data['utilizador'],
-            data_troca=datetime.utcnow(),
+            # Corrigido para usar o fuso horário correto da aplicação (UTC)
+            data_troca=datetime.now(pytz.utc),
             dias_produzidos=0
         )
         
@@ -1396,7 +1488,8 @@ def adicionar_matricula():
             flash('Matricula inválida.', 'danger')
         else:
             
-            senha_atual = f'canpack.{datetime.now().year}'
+            # Corrigido para usar o fuso horário correto da aplicação
+            senha_atual = f'canpack.{get_current_date().year}'
             senha_hash = generate_password_hash(senha_atual)
             c.execute(
                 "INSERT INTO admin (nome, matricula, senha, area) VALUES (?, ?, ?, ?)",
@@ -1428,6 +1521,8 @@ def relatorio():
         horario_termino = request.form.get('horario_termino', '').strip()
         foto = request.files.get('foto')
         data_alterada_manual = request.form.get('data_alterada_manual', 'false') == 'true'
+        temperatura_str = request.form.get('temperatura', '').strip()
+        temperatura_justificativa = request.form.get('temperatura_justificativa', '').strip()
 
         
         erros = []
@@ -1444,7 +1539,7 @@ def relatorio():
         if data:
             try:
                 data_selecionada = datetime.strptime(data, '%Y-%m-%d').date()
-                data_hoje = datetime.now().date()
+                data_hoje = get_current_date() # Usa a data com fuso horário de São Paulo
                 diferenca_dias = (data_hoje - data_selecionada).days
                 if data_selecionada > data_hoje:
                     erros.append("Não é permitido registrar atividades em datas futuras.")
@@ -1455,10 +1550,59 @@ def relatorio():
                 erros.append("Formato de data inválido.")
         if foto and not allowed_file(foto.filename):
             erros.append("Extensão do arquivo não permitida.")
+        
         if erros:
             for erro in erros:
                 flash(erro, 'danger')
-            return render_template('relatorio.html')
+            today_date = get_current_date().strftime('%Y-%m-%d')
+            return render_template('relatorio.html', today_date=today_date)
+        
+        temperatura = None
+        if temperatura_str:
+            try:
+                temperatura = float(temperatura_str)
+            except ValueError:
+                flash('Valor de temperatura inválido. Use apenas números.', 'danger')
+                today_date = get_current_date().strftime('%Y-%m-%d')
+                return render_template('relatorio.html', today_date=today_date)
+
+        # Conectar ao banco ANTES de validar temperatura no turno
+        conn = sqlite3.connect('relatorio_diario.db')
+        
+        # Verificar turno
+        turno = get_turno_horario(horario_inicio)
+        area_para_validacao = current_user.area if current_user.area != 'supervisor' else request.form.get('area', 'latas')
+        
+        # Validação: Se está durante o turno e NÃO há temperatura registrada ainda, é obrigatório
+        if turno != 'fora_turno':
+            # Verifica se já existe temperatura registrada neste turno
+            ja_tem_temperatura = existe_temperatura_no_turno(conn, data, turno, area_para_validacao)
+            
+            # Se não tem temperatura registrada e o usuário não preencheu, é obrigatório
+            if not ja_tem_temperatura and not temperatura_str:
+                erros.append(f"O registro de temperatura é obrigatório para o primeiro relatório do turno. Horário: {horario_inicio}")
+                for erro in erros:
+                    flash(erro, 'danger')
+                today_date = get_current_date().strftime('%Y-%m-%d')
+                conn.close()
+                return render_template('relatorio.html', today_date=today_date)
+            
+            # Se o usuário preencheu temperatura, verifica se já existe (não pode ter 2 no mesmo turno)
+            if temperatura_str and ja_tem_temperatura:
+                flash(f'Já existe um registro de temperatura para o turno {turno.replace("turno_", "").upper()}. Temperatura é registrada apenas 1 vez por turno.', 'warning')
+                today_date = get_current_date().strftime('%Y-%m-%d')
+                conn.close()
+                return render_template('relatorio.html', today_date=today_date)
+
+        # Validação da justificativa de temperatura no backend
+        if temperatura is not None:
+            if (temperatura < 18.5 or temperatura > 21.5) and not temperatura_justificativa:
+                erros.append("A justificativa para a temperatura fora do padrão é obrigatória.")
+                for erro in erros:
+                    flash(erro, 'danger')
+                today_date = get_current_date().strftime('%Y-%m-%d')
+                conn.close()
+                return render_template('relatorio.html', today_date=today_date)
         foto_path = None
         if foto:
             foto_nome = secure_filename(foto.filename)
@@ -1475,11 +1619,12 @@ def relatorio():
             area = current_user.area
         elif area not in ['tampas', 'latas']:
             area = 'latas'  
-        conn = sqlite3.connect('relatorio_diario.db')
+        
+        # Conexão já foi feita acima para validar temperatura
         c = conn.cursor()
         
         try:
-            data_atual = datetime.now().strftime('%Y-%m-%d')
+            data_atual = get_current_date().strftime('%Y-%m-%d')
             atividades = [
                 atividade.strip() for atividade in 
                 re.split(r'\s*[;+]\s*', trabalho_executado_original)
@@ -1492,11 +1637,11 @@ def relatorio():
                 c.execute('''INSERT INTO historico (
                     data, nome, tipo_acao, equipamento, solicitante, codigo_falha,
                     causa_encontrada, trabalho_executado, comentario, 
-                    horario_inicio, horario_termino, foto, eficiencia, area
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                    horario_inicio, horario_termino, foto, eficiencia, area, temperatura, temperatura_justificativa
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
                     (data, nome, tipo_acao, equipamento, solicitante, codigo_falha,
                      causa_encontrada, trabalho_executado, comentario,
-                     horario_inicio, horario_termino, foto_path, eficiencia, area))
+                     horario_inicio, horario_termino, foto_path, eficiencia, area, temperatura, temperatura_justificativa))
                 
                 registro_id = c.lastrowid
                 log_messages = []
@@ -1511,12 +1656,12 @@ def relatorio():
                     c.execute('''INSERT INTO historico_backup (
                         id_original, data, nome, tipo_acao, equipamento, solicitante,
                         codigo_falha, causa_encontrada, trabalho_executado, comentario,
-                        horario_inicio, horario_termino, foto, eficiencia,
+                        horario_inicio, horario_termino, foto, eficiencia, temperatura, temperatura_justificativa,
                         editado_por, data_edicao
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))''', 
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))''', 
                         (registro_id, backup_data, nome, tipo_acao, equipamento, solicitante, codigo_falha,
                          causa_encontrada, trabalho_executado, comentario,
-                         horario_inicio, horario_termino, foto_path, eficiencia,
+                         horario_inicio, horario_termino, foto_path, eficiencia, temperatura, temperatura_justificativa,
                          full_log_message))
             conn.commit()
             flash('Relatório adicionado com sucesso!', 'success')
@@ -1535,8 +1680,179 @@ def relatorio():
         finally:
             conn.close()
         return redirect(url_for('relatorio'))
-    return render_template('relatorio.html')
+    # Para requisições GET, passa a data atual correta para o template
+    today_date = get_current_date().strftime('%Y-%m-%d')
+    return render_template('relatorio.html', today_date=today_date)
 
+@app.route('/api/temperatura_data')
+@login_required
+def temperatura_data():
+    area = request.args.get('area', 'latas')
+
+    conn = sqlite3.connect('relatorio_diario.db')
+    c = conn.cursor()
+
+    if area == 'todas':
+        # Buscar dados de ambas as áreas
+        query = """
+            SELECT data, horario_inicio, temperatura, temperatura_justificativa, nome
+            FROM historico
+            WHERE temperatura IS NOT NULL
+            ORDER BY data, horario_inicio
+        """
+        c.execute(query)
+    else:
+        query = """
+            SELECT data, horario_inicio, temperatura, temperatura_justificativa, nome
+            FROM historico
+            WHERE area = ? AND temperatura IS NOT NULL
+            ORDER BY data, horario_inicio
+        """
+        c.execute(query, (area,))
+    
+    dados = c.fetchall()
+    conn.close()
+
+    # Agrupa os dados por dia
+    dados_diarios = defaultdict(list)
+    for data, horario, temp, just, nome in dados:
+        dados_diarios[data].append({
+            'horario': horario,
+            'temperatura': temp,
+            'justificativa': just,
+            'nome': nome
+        })
+
+    # Remove duplicatas consecutivas (mesma temperatura, mesma pessoa no mesmo dia)
+    dados_filtrados_por_dia = {}
+    for data, medicoes in dados_diarios.items():
+        medicoes_unicas = []
+        ultima_medicao = None
+        
+        for medicao in medicoes:
+            # Verifica se é diferente da última medição (temperatura ou pessoa diferente)
+            if ultima_medicao is None or \
+               medicao['temperatura'] != ultima_medicao['temperatura'] or \
+               medicao['nome'] != ultima_medicao['nome']:
+                medicoes_unicas.append(medicao)
+                ultima_medicao = medicao
+        
+        dados_filtrados_por_dia[data] = medicoes_unicas
+
+    # Formata para o gráfico, enviando apenas variações
+    dados_formatados = []
+    for data, medicoes in dados_filtrados_por_dia.items():
+        for medicao in medicoes:
+            dados_formatados.append({
+                'x': f"{data}T{medicao['horario']}",
+                'y': medicao['temperatura'],
+                'medicoesDia': medicoes  # Mantém todas as medições do dia para referência
+            })
+
+    return jsonify(dados_formatados)
+
+@app.route('/api/temperatura_stats')
+@login_required
+def temperatura_stats():
+    """
+    Retorna estatísticas detalhadas de temperatura para o dashboard supervisor
+    """
+    conn = sqlite3.connect('relatorio_diario.db')
+    c = conn.cursor()
+
+    def get_area_stats(area):
+        query = """
+            SELECT temperatura, data, horario_inicio, nome
+            FROM historico
+            WHERE area = ? AND temperatura IS NOT NULL
+            ORDER BY data DESC, horario_inicio DESC
+            LIMIT 100
+        """
+        c.execute(query, (area,))
+        dados = c.fetchall()
+        
+        if not dados:
+            return {
+                'media': 0,
+                'minima': 0,
+                'maxima': 0,
+                'conformidade': 0,
+                'ultimaData': 'N/A',
+                'tendencia': 'estavel',
+                'historico': [20, 20, 20, 20, 20, 20, 20]
+            }
+        
+        temps = [float(d[0]) for d in dados]
+        media = sum(temps) / len(temps)
+        minima = min(temps)
+        maxima = max(temps)
+        
+        # Conformidade (18.5 a 21.5)
+        conformes = sum(1 for t in temps if 18.5 <= t <= 21.5)
+        conformidade = (conformes / len(temps)) * 100
+        
+        # Tendência (comparar primeiras e últimas 5)
+        if len(temps) >= 10:
+            media_inicio = sum(temps[-5:]) / 5
+            media_fim = sum(temps[:5]) / 5
+            if media_fim > media_inicio + 0.5:
+                tendencia = 'subindo'
+            elif media_fim < media_inicio - 0.5:
+                tendencia = 'descendo'
+            else:
+                tendencia = 'estavel'
+        else:
+            tendencia = 'estavel'
+        
+        ultima_data = f"{dados[0][1]} {dados[0][2]}"
+        
+        return {
+            'media': media,
+            'minima': minima,
+            'maxima': maxima,
+            'conformidade': conformidade,
+            'ultimaData': ultima_data,
+            'tendencia': tendencia,
+            'historico': [round(sum(temps[i:i+5])/min(5, len(temps[i:i+5])), 1) for i in range(0, len(temps), 5)][:7]
+        }
+
+    try:
+        latas = get_area_stats('latas')
+        tampas = get_area_stats('tampas')
+        
+        # Estatísticas gerais
+        all_temps = []
+        for area in ['latas', 'tampas']:
+            c.execute("SELECT temperatura FROM historico WHERE area = ? AND temperatura IS NOT NULL", (area,))
+            all_temps.extend([float(t[0]) for t in c.fetchall()])
+        
+        if all_temps:
+            media_geral = sum(all_temps) / len(all_temps)
+            conformes = sum(1 for t in all_temps if 18.5 <= t <= 21.5)
+            conformidade_geral = (conformes / len(all_temps)) * 100
+            variacao = max(all_temps) - min(all_temps)
+            desvios = len(all_temps) - conformes
+        else:
+            media_geral = conformidade_geral = variacao = 0
+            desvios = 0
+        
+        conn.close()
+        
+        return jsonify({
+            'latas': latas,
+            'tampas': tampas,
+            'geral': {
+                'media': media_geral,
+                'conformidade': conformidade_geral,
+                'variacao': variacao,
+                'desvios': desvios
+            }
+        })
+    
+    except Exception as e:
+        conn.close()
+        logging.error(f"Erro ao obter estatísticas de temperatura: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/download_excel', methods=['GET', 'POST'])
 @login_required
@@ -2098,33 +2414,48 @@ def enviar_email(subject, body, recipient_email, attachment=None, attachment_fil
     except Exception as e:
         logging.error(f"Failed to send email: {e}")
 
+def get_stats_temperatura_por_area(c, area, where, params):
+    """Busca estatísticas de temperatura para uma área específica."""
+    query = f"""
+        SELECT temperatura
+        FROM historico
+        WHERE area = ? AND temperatura IS NOT NULL AND {where}
+    """
+    try:
+        c.execute(query, (area, *params))
+        temps = [row[0] for row in c.fetchall()]
+        if not temps:
+            return None, None
+
+        media = sum(temps) / len(temps)
+        minima = min(temps)
+        maxima = max(temps)
+        variacao = maxima - minima
+        
+        return media, variacao
+    except Exception as e:
+        logging.error(f"Erro ao buscar estatísticas de temperatura para '{area}': {e}")
+        return None, None
+
+
 def enviar_email_relatorio_diario(turno=None):
     
     conn = sqlite3.connect('relatorio_diario.db')
     c = conn.cursor()
-    now = datetime.now()
-    data_hoje = now.strftime('%Y-%m-%d')
-    data_ontem = (now - timedelta(days=1)).strftime('%Y-%m-%d')
-    # Definir faixas de horário para cada turno
+    # Usa a data e hora corretas do fuso de São Paulo para evitar erros de dia
+    now_sp = get_current_datetime()
+    data_hoje = now_sp.strftime('%Y-%m-%d')
+    data_ontem = (now_sp - timedelta(days=1)).strftime('%Y-%m-%d')
     if turno == 'noite':
-        # Turno noite: 19:00 do dia anterior até 06:59 do dia atual
-        where = "( (data = ? AND horario_inicio >= '19:00') OR (data = ? AND horario_inicio <= '06:59') )"
+        where = "( (data = ? AND horario_inicio >= '18:00') OR (data = ? AND horario_inicio <= '05:59') )"
         params = (data_ontem, data_hoje)
     elif turno == 'manha':
-        # Turno manhã: 07:00 até 18:59 do dia atual
-        where = "(data = ? AND horario_inicio >= '07:00' AND horario_inicio <= '18:59')"
+        where = "(data = ? AND horario_inicio >= '06:00' AND horario_inicio <= '17:59')"
         params = (data_hoje,)
     else:
         where = "(data = ?)"
         params = (data_hoje,)
-    if turno == 'noite':
-        areas_para_enviar = ['latas']
-    elif turno == 'manha':
-        areas_para_enviar = ['tampas']
-    else:
-        areas_para_enviar = ['tampas', 'latas']
-
-    # evitar múltiplos envios da mesma área nesta execução
+    areas_para_enviar = ['tampas', 'latas']
     sent_areas = set()
 
     for area in areas_para_enviar:
@@ -2133,7 +2464,7 @@ def enviar_email_relatorio_diario(turno=None):
             continue
 
         try:
-            c.execute(f"SELECT id, horario_inicio, tipo_acao, equipamento, nome, trabalho_executado, comentario, foto FROM historico WHERE area = ? AND {where} ORDER BY horario_inicio", (area, *params))
+            c.execute(f"SELECT id, horario_inicio, tipo_acao, equipamento, nome, trabalho_executado, causa_encontrada, comentario, foto FROM historico WHERE area = ? AND {where} ORDER BY horario_inicio", (area, *params))
             rows = c.fetchall()
             
             data_for_template = []
@@ -2141,27 +2472,30 @@ def enviar_email_relatorio_diario(turno=None):
             
             for row in rows:
                 row_list = list(row)
-                if row_list[7] and os.path.exists(row_list[7]):
-                    image_path = row_list[7]
+                if row_list[8] and os.path.exists(row_list[8]): # Índice da foto agora é 8
+                    image_path = row_list[8]
                     cid = f"image_{uuid.uuid4().hex}"
-                    row_list[7] = cid
+                    row_list[8] = cid
                     embedded_images.append({'path': image_path, 'cid': cid})
                 else:
-                    row_list[7] = None
+                    row_list[8] = None
                 data_for_template.append(row_list)
 
             summary = defaultdict(int)
             for row in data_for_template:
                 summary[row[2]] += 1
 
+            # Buscar estatísticas de temperatura
+            temperatura_media, temperatura_variacao = get_stats_temperatura_por_area(c, area, where, params)
+
         except Exception as e:
-            logging.error(f"Error processing {area} area: {e}")
+            logging.error(f"Erro ao processar a área {area}: {e}")
             data_for_template = []
             embedded_images = []
             summary = defaultdict(int)
 
         area_name = 'Tampas' if area == 'tampas' else 'Latas'
-        body = format_email_body(data_for_template, area_name, summary)
+        body = format_email_body(data_for_template, area_name, summary, temperatura_media, temperatura_variacao)
         
         wb = Workbook()
         ws = wb.active
@@ -2192,11 +2526,11 @@ def enviar_email_relatorio_diario(turno=None):
 
         # Send email (apenas uma chamada por área)
         enviar_email(
-            f"Relatório de Ações - {area_name} - {now.strftime('%d/%m/%Y %H:%M')}",
+            f"Relatório de Ações - {area_name} - {now_sp.strftime('%d/%m/%Y %H:%M')}",
             body,
             recipient_list,
             attachment=excel_buffer,
-            attachment_filename=f"relatorio_{area}_{now.strftime('%Y%m%d_%H%M')}.xlsx",
+            attachment_filename=f"relatorio_{area}_{now_sp.strftime('%Y%m%d_%H%M')}.xlsx",
             embedded_images=embedded_images
         )
 
@@ -2205,8 +2539,9 @@ def enviar_email_relatorio_diario(turno=None):
 
     conn.close()
 
-def format_email_body(data, area_name, summary_data):
-    with open('templates/SMTP/TEMPLATE_ENVIO.HTML', 'r', encoding='utf-8') as f:
+def format_email_body(data, area_name, summary_data, temperatura_media=None, temperatura_variacao=None):
+    template_file_path = os.path.join(base_path, 'templates', 'SMTP', 'TEMPLATE_ENVIO.HTML')
+    with open(template_file_path, 'r', encoding='utf-8') as f:
         template_str = f.read()
     
     template = Template(template_str)
@@ -2221,7 +2556,9 @@ def format_email_body(data, area_name, summary_data):
         generation_date=generation_date,
         generation_time=generation_time,
         summary=summary_data,
-        total_activities=len(data)
+        total_activities=len(data),
+        temperatura_media=temperatura_media,
+        temperatura_variacao=temperatura_variacao
     )
 
 @app.route('/api/historico/export', methods=['GET'])
@@ -2277,7 +2614,8 @@ def exportar_historico():
         excel_buffer.seek(0)
 
         
-        filename = f'historico_trocas_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        # Corrigido para usar o fuso horário correto da aplicação
+        filename = f'historico_trocas_{get_current_datetime().strftime("%Y%m%d_%H%M")}.xlsx'
         logging.info(f"Arquivo gerado com sucesso: {filename}")  
 
         
@@ -2295,7 +2633,7 @@ def exportar_historico():
             'detail': traceback.format_exc()
         }), 500
 
-def gerar_excel_historico_acoes(dados, filtros=None):
+def gerar_excel_historico_acoes(dados, filtros=None, dados_temperatura=None):
     wb = Workbook()
     ws = wb.active
     ws.title = "Histórico de Ações"
@@ -2348,6 +2686,43 @@ def gerar_excel_historico_acoes(dados, filtros=None):
             
             if col_num in [11, 12]:  # Causa e Trabalho
                 cell.alignment = Alignment(wrap_text=True, vertical='top')
+    if dados_temperatura:
+        ws_temp = wb.create_sheet("Temperaturas")
+        
+        colunas_temp = {
+            'A': ('Data', 15),
+            'B': ('Hora', 10),
+            'C': ('Nome', 30),
+            'D': ('Temperatura (°C)', 18),
+            'E': ('Justificativa', 50)
+        }
+        
+        for col, (_, width) in colunas_temp.items():
+            ws_temp.column_dimensions[col].width = width
+        
+        ultima_coluna_temp = get_column_letter(len(colunas_temp))
+        ws_temp.merge_cells(f'A1:{ultima_coluna_temp}1')
+        ws_temp['A1'] = 'Relatório de Temperaturas'
+        ws_temp['A1'].font = Font(size=16, bold=True)
+        ws_temp['A1'].alignment = EXCEL_STYLES['header']['alignment']
+        
+        current_row_temp = 2
+        for col, (header, _) in enumerate(colunas_temp.values(), 1):
+            cell = ws_temp.cell(row=current_row_temp, column=col, value=header)
+            cell.fill = EXCEL_STYLES['header']['fill']
+            cell.font = EXCEL_STYLES['header']['font']
+            cell.border = EXCEL_STYLES['header']['border']
+            cell.alignment = EXCEL_STYLES['header']['alignment']
+        
+        for row_num, item in enumerate(dados_temperatura, start=current_row_temp + 1):
+            for col_num, value in enumerate(item, 1):
+                cell = ws_temp.cell(row=row_num, column=col_num, value=value)
+                cell.border = EXCEL_STYLES['cell']['border']
+                cell.alignment = EXCEL_STYLES['cell']['alignment']
+                
+                if col_num == 5:  # Justificativa
+                    cell.alignment = Alignment(wrap_text=True, vertical='top')
+    
     return wb
 
 @app.route('/export_excel_acoes', methods=['GET'])
@@ -2363,6 +2738,8 @@ def export_excel_acoes():
         solicitante_filter = request.args.get('solicitante')
         codigo_falha_filter = request.args.get('codigo_falha')
         area_filter = request.args.get('area')
+        data_inicio_filter = request.args.get('data_inicio')
+        data_fim_filter = request.args.get('data_fim')
 
         
         conn = sqlite3.connect('relatorio_diario.db')
@@ -2394,10 +2771,17 @@ def export_excel_acoes():
             params.append(current_user.area)
         if search_filter:
             query += " AND (h.id = ? OR h.nome LIKE ?)"
-            params.extend([search_filter, f'%{search_filter}%'])
+            params.append(search_filter)
+            params.append(f'%{search_filter}%')
         if data_filter:
             query += " AND DATE(h.data) = ?"
             params.append(data_filter)
+        if data_inicio_filter:
+            query += " AND DATE(h.data) >= ?"
+            params.append(data_inicio_filter)
+        if data_fim_filter:
+            query += " AND DATE(h.data) <= ?"
+            params.append(data_fim_filter)
         if nome_filter:
             query += " AND h.nome LIKE ?"
             params.append(f'%{nome_filter}%')
@@ -2440,7 +2824,60 @@ def export_excel_acoes():
         
         df = df[['id', 'data', 'nome', 'horario_inicio', 'horario_termino', 'duracao', 'tipo_acao', 'equipamento', 'solicitante', 'codigo_falha', 'causa_encontrada', 'trabalho_executado', 'comentario', 'area']]
 
-        wb = gerar_excel_historico_acoes(df.values.tolist())
+        # Buscar dados de temperatura para o mesmo período
+        dados_temperatura = []
+        conn = sqlite3.connect('relatorio_diario.db')
+        query_temp = """
+            SELECT
+                data,
+                horario_inicio,
+                nome,
+                temperatura,
+                temperatura_justificativa
+            FROM historico
+            WHERE temperatura IS NOT NULL
+        """
+        params_temp = []
+        
+        if current_user.area != 'supervisor':
+            query_temp += " AND area = ?"
+            params_temp.append(current_user.area)
+        elif area_filter:
+            query_temp += " AND area = ?"
+            params_temp.append(area_filter)
+        
+        if data_inicio_filter:
+            query_temp += " AND DATE(data) >= ?"
+            params_temp.append(data_inicio_filter)
+        if data_fim_filter:
+            query_temp += " AND DATE(data) <= ?"
+            params_temp.append(data_fim_filter)
+        if data_filter:
+            query_temp += " AND DATE(data) = ?"
+            params_temp.append(data_filter)
+        if nome_filter:
+            query_temp += " AND nome LIKE ?"
+            params_temp.append(f'%{nome_filter}%')
+        
+        query_temp += " ORDER BY data DESC, horario_inicio DESC"
+        
+        df_temp = pd.read_sql_query(query_temp, conn, params=params_temp)
+        conn.close()
+        
+        if not df_temp.empty:
+            df_temp['data'] = pd.to_datetime(df_temp['data']).dt.strftime('%d/%m/%Y')
+            df_temp['temperatura_justificativa'] = df_temp['temperatura_justificativa'].fillna('')
+            
+            for _, row in df_temp.iterrows():
+                dados_temperatura.append([
+                    row['data'],
+                    row['horario_inicio'],
+                    row['nome'],
+                    row['temperatura'],
+                    row['temperatura_justificativa']
+                ])
+
+        wb = gerar_excel_historico_acoes(df.values.tolist(), dados_temperatura=dados_temperatura if dados_temperatura else None)
         excel_buffer = BytesIO()
         wb.save(excel_buffer)
         excel_buffer.seek(0)
@@ -2448,7 +2885,7 @@ def export_excel_acoes():
             excel_buffer,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=f'historico_acoes_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+            download_name=f'historico_acoes_{get_current_datetime().strftime("%Y%m%d_%H%M")}.xlsx'
         )
 
     except Exception as e:
@@ -2459,16 +2896,12 @@ def gerar_excel_descartes(dados, filtros=None):
     wb = Workbook()
     ws = wb.active
     ws.title = "Histórico de Descartes"
-
-    
     colunas = {
         'A': ('Código', 15),
         'B': ('Data Descarte', 20),
         'C': ('Operador', 25),
         'D': ('Motivo', 50),
     }
-
-    
     for col, (_, width) in colunas.items():
         ws.column_dimensions[col].width = width
     ultima_coluna = get_column_letter(len(colunas))
@@ -2542,6 +2975,7 @@ def exportar_descartes():
         excel_buffer.seek(0)
 
         filename = f'historico_descartes_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'historico_descartes_{get_current_datetime().strftime("%Y%m%d_%H%M")}.xlsx'
 
         return send_file(
             excel_buffer,
@@ -2634,7 +3068,8 @@ def analise():
         if mes_selecionado:
             data_analise = datetime.strptime(mes_selecionado, '%Y-%m')
         else:
-            data_analise = datetime.now()
+            # Corrigido para usar o fuso horário correto da aplicação
+            data_analise = get_current_datetime()
         hotspots_data = {
             '1': {'top': '11.5274%', 'left': '82.969%'},
             '2': {'top': '42.4126%', 'left': '80.2335%'},
@@ -2853,6 +3288,33 @@ def analise():
         flash('Erro ao gerar análise.', 'danger')
         return redirect(url_for('index'))
 
+@app.route('/api/diagnostics/server-info')
+@login_required
+def server_info():
+    """
+    Endpoint de diagnóstico para obter informações de data, hora e fuso horário do servidor.
+    """
+    try:
+        app_time = get_current_datetime()
+        server_local_time = datetime.now()
+        server_utc_time = datetime.now(pytz.utc)
+        system_tz_name = time.tzname
+        system_offset_seconds = -time.timezone if not time.daylight else -time.altzone
+        system_offset_hours = system_offset_seconds / 3600
+
+        info = {
+            'application_timezone': str(app_time.tzinfo),
+            'application_time': app_time.isoformat(),
+            'server_system_time': server_local_time.isoformat(),
+            'server_utc_time': server_utc_time.isoformat(),
+            'server_system_timezone_names': {'standard': system_tz_name[0], 'daylight': system_tz_name[1]},
+            'server_system_utc_offset_hours': system_offset_hours
+        }
+        return jsonify(info)
+    except Exception as e:
+        logging.error(f"Erro ao obter informações de diagnóstico do servidor: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/testar_envio_email_turno', methods=['GET'])
 @login_required
 def testar_envio_email_turno():
@@ -2907,8 +3369,8 @@ if __name__ == '__main__':
             enviar_email_relatorio_diario('manha')
 
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
-        scheduler.add_job(job_dia, CronTrigger(hour=7, minute=0, timezone=sao_paulo_tz), id='job_dia', replace_existing=True)
-        scheduler.add_job(job_noite, CronTrigger(hour=19, minute=0, timezone=sao_paulo_tz), id='job_noite', replace_existing=True)
+        scheduler.add_job(job_dia, CronTrigger(hour=18, minute=0, timezone=sao_paulo_tz), id='job_dia', replace_existing=True)
+        scheduler.add_job(job_noite, CronTrigger(hour=6, minute=0, timezone=sao_paulo_tz), id='job_noite', replace_existing=True)
         scheduler.start()
         logging.info('[SCHEDULER] Jobs de email agendados.')
     else:

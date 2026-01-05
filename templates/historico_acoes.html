@@ -148,7 +148,7 @@
     <!-- Cabeçalho com título e botão de download -->
     <div class="page-header">
         <h2>Histórico de Ações</h2>
-        <button onclick="exportarExcel()" class="btn-download">
+        <button data-bs-toggle="modal" data-bs-target="#exportModal" class="btn-download">
             <i class="fas fa-file-excel"></i>
             Exportar Excel
         </button>
@@ -593,10 +593,9 @@
                     <a class="page-link" href="{{ url_for('historico_acoes', page=page-1, **query_params) }}">&laquo;</a>
                 </li>
 
-                {% set window = 2 %}
                 {% set ns = namespace(last=0) %}
                 {% for p in range(1, total_pages + 1) %}
-                    {% if p == 1 or p == total_pages or (p >= page - window and p <= page + window) %}
+                    {% if p == 1 or p == total_pages or (p >= page and p <= page + 2) %}
                         {% if p > ns.last + 1 %}
                             <li class="page-item disabled"><span class="page-link">...</span></li>
                         {% endif %}
@@ -718,6 +717,35 @@
     </div>
 </div>
 
+<!-- Modal de Exportação -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportModalLabel">Exportar para Excel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Selecione o intervalo de datas para a exportação. Os outros filtros aplicados na página serão mantidos.</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="exportDataInicio" class="form-label">Data de Início</label>
+                        <input type="date" class="form-control" id="exportDataInicio">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="exportDataFim" class="form-label">Data de Fim</label>
+                        <input type="date" class="form-control" id="exportDataFim">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="exportarExcel()">Confirmar Exportação</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -789,13 +817,21 @@ function enableFullScreen(imagePath) {
 }
 
 function exportarExcel() {
-    // Coletar todos os filtros atuais da URL
+    // Coleta os filtros da URL
     const urlParams = new URLSearchParams(window.location.search);
-    
-    // Construir a URL de exportação com os mesmos filtros
+
+    // Pega as datas do modal
+    const dataInicio = document.getElementById('exportDataInicio').value;
+    const dataFim = document.getElementById('exportDataFim').value;
+
+    // Adiciona as datas aos parâmetros, se existirem
+    if (dataInicio) urlParams.set('data_inicio', dataInicio);
+    if (dataFim) urlParams.set('data_fim', dataFim);
+
+    // Remove o filtro de data única, se existir, para dar prioridade ao range
+    urlParams.delete('data');
+
     const exportUrl = `/export_excel_acoes?${urlParams.toString()}`;
-    
-    // Fazer o download
     window.location.href = exportUrl;
 }
 
@@ -940,5 +976,27 @@ window.editRow = function(registro) {
         console.error('Bootstrap não está disponível');
     }
 };
+
+document.addEventListener('DOMContentLoaded', function() {
+    const dataInicioInput = document.getElementById('exportDataInicio');
+    const dataFimInput = document.getElementById('exportDataFim');
+
+    if (dataInicioInput && dataFimInput) {
+        dataInicioInput.addEventListener('change', function() {
+            // Define a data mínima para o campo de data final
+            dataFimInput.min = this.value;
+
+            // Se a data final for anterior à nova data de início, limpa o campo
+            if (dataFimInput.value && dataFimInput.value < this.value) {
+                dataFimInput.value = '';
+            }
+        });
+
+        dataFimInput.addEventListener('change', function() {
+            // Opcional: Define a data máxima para o campo de data inicial
+            dataInicioInput.max = this.value;
+        });
+    }
+});
 </script>
 {% endblock %}

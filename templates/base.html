@@ -35,7 +35,7 @@
                 
                 <!-- Barra de Navegação -->
                 <nav class="header-nav">
-                    {% if request.endpoint in ['relatorio', 'historico_acoes', 'historico_todas_edicoes'] %}
+                    {% if request.endpoint in ['relatorio', 'historico_acoes', 'historico_todas_edicoes', 'analise_temperatura'] %}
                     <div class="nav-links">
                         <a href="{{ url_for('relatorio') }}" 
                            class="nav-link {% if request.endpoint == 'relatorio' %}active{% endif %}">
@@ -44,6 +44,10 @@
                         <a href="{{ url_for('historico_acoes') }}" 
                            class="nav-link {% if request.endpoint == 'historico_acoes' %}active{% endif %}">
                            <i class="fas fa-history"></i> Histórico
+                        </a>
+                        <a href="{{ url_for('analise_temperatura') }}"
+                           class="nav-link {% if request.endpoint == 'analise_temperatura' %}active{% endif %}">
+                           <i class="fas fa-thermometer-half"></i> Temperatura
                         </a>
                         {% if current_user.area == 'supervisor' %}
                         <a href="{{ url_for('historico_todas_edicoes') }}" 

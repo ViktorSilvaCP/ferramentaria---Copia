@@ -54,6 +54,16 @@
                     <p style="margin: 0;">• {{ qtd }} atividade(s) de {{ tipo }}</p>
                 {% endfor %}
             </div>
+            {% if temperatura_media is not none %}
+            <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 16px; margin-bottom: 24px;">
+                <strong>Estatísticas de Temperatura:</strong><br>
+                <p style="margin: 8px 0;">• <strong>Temperatura Média:</strong> {{ "%.1f"|format(temperatura_media) }}°C</p>
+                {% if temperatura_variacao is not none %}
+                    <p style="margin: 0;">• <strong>Variação:</strong> {{ "%.1f"|format(temperatura_variacao) }}°C</p>
+                {% endif %}
+                <p style="margin: 8px 0; font-size: 0.9em; color: #666;">Intervalo esperado: 18.5°C - 21.5°C</p>
+            </div>
+            {% endif %}
             <p style="margin-bottom: 16px;">Atenciosamente,</p>
             <p style="margin-bottom: 16px;"><strong>Equipe Ferramentaria {{ area_name }}</strong></p>
                     </div>
